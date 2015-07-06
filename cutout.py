@@ -4,12 +4,6 @@
 """
 A set of simple proto-function to make postage stamps using fitsio
 F. Menanteau, NCSA July 2015
-
-Todo:
-
-- Iterate over RA,DEC
-- Add padding in case we reach the border
-
 """
 
 import fitsio
@@ -17,6 +11,7 @@ import os,sys
 from despyastro import astrometry
 from despyastro import wcsutil
 import time
+import numpy
 
 # Format time
 def elapsed_time(t1,verb=False):
@@ -28,7 +23,6 @@ def elapsed_time(t1,verb=False):
     return stime
 
 def get_coadd_hdu_extensions_byfilename(filename):
-
     """
     Return the HDU extension for coadds (old-school) based on the extension name.
     Check if dealing with .fz or .fits files
@@ -41,7 +35,6 @@ def get_coadd_hdu_extensions_byfilename(filename):
         wgt_hdu = 1
     else:
         raise NameError("ERROR: No .fz or .fits files found")
-
     return sci_hdu, wgt_hdu
 
 def update_wcs_matrix(header,x0,y0,naxis1,naxis2):
@@ -66,14 +59,12 @@ def update_wcs_matrix(header,x0,y0,naxis1,naxis2):
     h['CRPIX2'] = CRPIX2
     return h
 
-def cutout(filename, ra, dec, xsize=3.0, ysize=3.0, units='arcmin',prefix='DES'):
+def cutout(filename, ra, dec, xsize=1.0, ysize=1.0, units='arcmin',prefix='DES'):
 
     """
     Makes cutouts around ra, dec for a give xsize and ysize
     ra,dec can be scalars or lists/arrays
-
     """
-    
     # Check for the units
     if units == 'arcsec':
         scale = 1
@@ -124,14 +115,18 @@ def cutout(filename, ra, dec, xsize=3.0, ysize=3.0, units='arcmin',prefix='DES')
         x0,y0 = wcs.sky2image(ra[k],dec[k])
         x0 = round(x0)
         y0 = round(y0)
-        dx = int(0.5*pixelscale*xsize*scale)
-        dy = int(0.5*pixelscale*ysize*scale)
-        naxis1 = 2*dx+1
-        naxis2 = 2*dy+1
+        dx = int(0.5*xsize*scale/pixelscale)
+        dy = int(0.5*ysize*scale/pixelscale)
+        naxis1 = 2*dx#+1
+        naxis2 = 2*dy#+1
         y1 = y0-dy
         y2 = y0+dy
         x1 = x0-dx
         x2 = x0+dx
+
+        # Create a canvas
+        im_section_sci = numpy.zeros((naxis1,naxis2))
+        im_section_wft = numpy.zeros((naxis1,naxis2))
         
         # Read in the image section we want for SCI/WGT
         im_section_sci = ifits[sci_hdu][y1:y2,x1:x2]
@@ -154,7 +149,6 @@ def cutout(filename, ra, dec, xsize=3.0, ysize=3.0, units='arcmin',prefix='DES')
         ofits.write(im_section_wgt,header=h_section_wgt)
         ofits.close()
         print >>sys.stderr,"# Wrote: %s" % outname
-
       
     return
 
@@ -163,12 +157,13 @@ if __name__ == "__main__":
     # images taken from:
     # /archive_data/Archive/OPS/coadd/20141006000032_DES0002+0001/coadd/
 
-    # Example inputs
-    ra  = [0.71925223,   0.61667249, 0.615752]
-    dec = [0.0081421517, 0.13929069, 0.070078051]
+    # Example of inputs:
+    # ra,dec can be list or scalars
+    ra  = [0.71925223,   0.61667249, 0.615752,    0.31218133]
+    dec = [0.0081421517, 0.13929069, 0.070078051, 0.08508208]
     
     filename = 'DES0002+0001_g.fits.fz'
-
     t0 = time.time()
-    cutout(filename, ra, dec, xsize=125, ysize=45, units='arcmin',prefix='DES')
+    cutout(filename, ra, dec, xsize=5, ysize=5, units='arcmin',prefix='DES')
     print "Done: %s" % elapsed_time(t0)
+
