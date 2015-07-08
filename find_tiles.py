@@ -4,13 +4,12 @@ import pandas as pd
 from despydb import desdbi
 import despyastro
 
-def connect_DB(db_section):
-    dbh = desdbi.DesDbi(section=db_section)
-    return dbh
+ALL_BANDS = "'g','r','i','z','Y'"
+
 
 def get_archive_root(dbh,archive_name='desardata',verb=False):
 
-    """ Gets the archive root -- usually /archive_data/Archive """
+    """ Gets the archive root for an archive_name -- usually /archive_data/Archive """
     query = "select archive_root from archive_sites where location_name='%s'"  % archive_name
     if verb:
         print "# Getting the archive root name for section: %s" % archive_name
@@ -23,45 +22,35 @@ def get_archive_root(dbh,archive_name='desardata',verb=False):
 
 def find_tilename(ra,dec,dbh):
 
-
-    QUERY_TILENAME = """
+    QUERY_TILENAME_RADEC = """
     select TILENAME from felipe.COADDTILE_NEW
            where (({RA} BETWEEN RACMIN and RACMAX) AND ({DEC} BETWEEN DECCMIN and DECCMAX))
     """
-    cur = dbh.cursor()
-    cur.execute(QUERY_TILENAME.format(RA=ra,DEC=dec))
-    tilename, = cur.fetchone()
-    return tilename
+    tilenames_dict = despyastro.query2dict_of_columns(QUERY_TILENAME_RADEC.format(RA=ra,DEC=dec),dbh,array=False)
+    if len(tilenames_dict)<1:
+        print "# WARNING: No tile found at ra:%s, dec:%s" % (ra,dec)
+        return False
+    else:
+        return tilenames_dict['TILENAME'][0]
+    return
 
 def get_coaddfiles_tilename(tilename,tag,dbh,bands='all'):
 
-    archive_root = '/archive_data/Archive/'
-    band = 'r'
-    
-    QUERY_COADDFILES_BAND = """
+    QUERY_COADDFILES_BANDS = """
     select distinct f.path, TILENAME, BAND from des_admin.COADD c, des_admin.filepath_desar f
              where
-             c.BAND='{BAND}' and
+             c.BAND in ({BANDS}) and
              c.TILENAME='{TILENAME}' and
              f.ID=c.ID and
              c.RUN in (select RUN from des_admin.RUNTAG where TAG='{TAG}')"""
-    print QUERY_COADDFILES_BAND.format(TILENAME=tilename,TAG=tag,BAND=band)
 
-    cur = dbh.cursor()
-    cur.execute(QUERY_COADDFILES_BAND.format(TILENAME=tilename,TAG=tag,BAND=band))
-    a = cur.fetchall()
+    if bands == 'all':
+        sbands = ALL_BANDS
+    else:
+        sbands = "'" + "','".join(bands) + "'" # trick to format
 
-    QUERY_COADDFILES_ALL = """
-    select distinct f.path, TILENAME, BAND from des_admin.COADD c, des_admin.filepath_desar f
-             where
-             c.TILENAME='{TILENAME}' and
-             f.ID=c.ID and
-             c.RUN in (select RUN from des_admin.RUNTAG where TAG='{TAG}')"""
-    #cur.execute(QUERY_COADDFILES_ALL.format(TILENAME=tilename,TAG=tag))
-    #b = cur.fetchall()
-    #print b
-
-    return a
+    # Return a record array with the query
+    return despyastro.query2rec(QUERY_COADDFILES_BANDS.format(TILENAME=tilename,TAG=tag,BANDS=sbands),dbh)
 
 if __name__ == "__main__":
 
@@ -91,22 +80,43 @@ if __name__ == "__main__":
     # this only keeps values
     ra = df.RA.values #if you only want the values
 
+    # Defaults
     tag = 'Y1A1_COADD'
+    bands = ['g','i','z']
+    bands = 'all'
 
     # Get DB handle
-    dbh = connect_DB(db_section='db-desoper')
+    dbh = desdbi.DesDbi(section='db-desoper')
 
     # Get archive_root
     archive_root = get_archive_root(dbh,archive_name='desardata',verb=True)
 
+    # Find all of the tilenames, for ra,dec array
     tilenames = []
     for k in range(len(ra)):
         tilename = find_tilename(ra[k],dec[k],dbh)
+        if not tilename: # No tilename found
+            # Here we could do something to store the failed (ra,dec) pairs
+            continue
+        # Store unique values
         if tilename not in tilenames:
             tilenames.append(tilename)
-        
 
+    filenames = {}
     for tilename in tilenames:
-        a = get_coaddfiles_tilename(tilename,tag,dbh,bands='all')
-        print a
+        filenames[tilename] = get_coaddfiles_tilename(tilename,tag,dbh,bands=bands)
+        #print x.dtype.names
+        print filenames[tilename].PATH
+
+
+
+    print filenames['DES0005+0001'].PATH
+
+    #print filenames['DES0005+0001'][ filenames['DES0005+0001']['BAND'] == 'z' ].PATH
+    #print filenames['DES0005+0001'][ filenames['DES0005+0001']['BAND'] == 'r' ].PATH
+
+    #for file in filenames['DES0005+0001']:
+    #    print 
+
+    #print filenames['DES0005+0001']['PATH']
         
