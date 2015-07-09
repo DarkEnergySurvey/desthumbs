@@ -8,7 +8,6 @@ import desthumbs
 import numpy
 import time
 
-ALL_BANDS = ['g','r','i','z','Y']
 XSIZE_default = 1.0
 YSIZE_default = 1.0
 
@@ -81,7 +80,6 @@ def get_coaddfiles_tilename(tilename,dbh,tag,bands='all'):
              c.RUN in (select RUN from des_admin.RUNTAG where TAG='{TAG}')"""
 
     if bands == 'all':
-         #sbands = "'" + "','".join(ALL_BANDS) + "'" # trick to format
         rec = despyastro.query2rec(QUERY_COADDFILES_ALL.format(TILENAME=tilename,TAG=tag),dbh)
     else:
         sbands = "'" + "','".join(bands) + "'" # trick to format
@@ -171,10 +169,12 @@ if __name__ == "__main__":
             print "# Cutting: %s" % filename
             desthumbs.fitscutter(filename, ra[indx], dec[indx], xsize=xsize[indx], ysize=ysize[indx], units='arcmin',prefix=args.prefix)
 
-
-        # 3. Create color images using stiff for each ra
+        # 3. Create color images using stiff for each ra,dec and loop over (ra,dec)
         avail_bands = filenames.BAND
         NTHREADS = len(avail_bands)
         for k in range(len(ra[indx])):
-            desthumbs.color_radec(ra[indx][k],dec[indx][k],avail_bands,prefix=args.prefix,colorset=args.colorset, stiff_parameters={'NTHREADS':NTHREADS})
+            desthumbs.color_radec(ra[indx][k],dec[indx][k],avail_bands,
+                                  prefix=args.prefix,
+                                  colorset=args.colorset,
+                                  stiff_parameters={'NTHREADS':NTHREADS})
            

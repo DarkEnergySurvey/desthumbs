@@ -256,8 +256,6 @@ def color_radec(ra,dec,avail_bands,prefix='DES',colorset=['i','r','g'], stiff_pa
 
     t0 = time.time()
 
-    # Set the output tiff name
-    tiffname = get_thumbColorName(ra,dec,prefix=prefix,ext='tif')
 
     # Get colorset or match with available bands
     CSET = get_colorset(avail_bands,colorset) 
@@ -265,18 +263,28 @@ def color_radec(ra,dec,avail_bands,prefix='DES',colorset=['i','r','g'], stiff_pa
     if CSET is False:
         print "# WARNING: Could not find a suitable filter set for color image for ra,dec: %s,%s" % (ra,dec)
         return 
-    
+
+    ## ----------------------------------- ##
+    # HERE WE COULD LOOP OVER RA,DEC if they are lists!
+
+    # Set the output tiff name
+    tiffname = get_thumbColorName(ra,dec,prefix=prefix,ext='tif')
+
+    # Set the names of the input files
     fitsfiles = []
     for BAND in CSET:
         fitsthumb = get_thumbFitsName(ra,dec,BAND,prefix='DES',ext='fits')
         fitsfiles.append( "%s" % fitsthumb)
 
+    # Build the cmd to call
     cmd = make_stiff_call(fitsfiles,tiffname,stiff_parameters={},list=False)
     status = subprocess.call(cmd,shell=True)#,stdout=log, stderr=log)
     if status > 0:
         print "***\nERROR while running Stiff***"
     else:
         print "# Total stiff time: %s" % desthumbs.elapsed_time(t0)
+
+    ## ----------------------------------- ##
 
     return 
 
