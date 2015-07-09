@@ -11,6 +11,20 @@ from despyastro import astrometry
 from despyastro import wcsutil
 import time
 import numpy
+import subprocess
+
+# Naming template
+FITS_OUTNAME = "{prefix}J{ra}{dec}_{filter}.{ext}"
+TIFF_OUTNAME = "{prefix}J{ra}{dec}.{ext}"
+STIFF_EXE = 'stiff'
+
+# Definitions for the color filter sets we'd like to use, by priority
+# depending on what BANDS will be combined
+_CSET1 = ['i','r','g']
+_CSET2 = ['z','r','g']
+_CSET3 = ['z','i','g']
+_CSET4 = ['z','i','r']
+_CSETS = (_CSET1,_CSET2,_CSET3,_CSET4)
 
 # Format time
 def elapsed_time(t1,verb=False):
@@ -39,7 +53,7 @@ def get_coadd_hdu_extensions_byfilename(filename):
 def update_wcs_matrix(header,x0,y0,naxis1,naxis2):
 
     """
-    Update the wcs header object with the right CRPIX1,2 CRVAL1,2 for a given subsection
+    Update the wcs header object with the right CRPIX[1,2] CRVAL[1,2] for a given subsection
     """
     import copy
     # We need to make a deep copy/otherwise if fails
@@ -57,29 +71,6 @@ def update_wcs_matrix(header,x0,y0,naxis1,naxis2):
     h['CRPIX1'] = CRPIX1
     h['CRPIX2'] = CRPIX2
     return h
-
-def get_pixelscale(header,units='arcsec'):
-
-    import math
-
-    """
-    Returns the pixel-scale from the CDX_X matrix in an
-    WCS-compiant header
-    """
-    if units == 'arcsec':
-        scale = 3600
-    elif units == 'arcmin':
-        scale = 60
-    elif units == 'degree':
-        scale = 1
-    else:
-        sys.exit("ERROR: must define units as arcses/arcmin/degree only")
-
-    CD1_1 = header['CD1_1']
-    CD1_2 = header['CD1_2']
-    CD2_1 = header['CD2_1']
-    CD2_2 = header['CD2_2']
-    return scale*math.sqrt( abs(CD1_1*CD2_2-CD1_2*CD2_1) )
 
 def check_inputs(ra,dec,xsize,ysize):
 
@@ -106,13 +97,32 @@ def check_inputs(ra,dec,xsize,ysize):
         raise TypeError('RA, DEC and XSIZE and YSIZE need to be the same length')
     return ra,dec,xsize,ysize
 
+def get_thumbFitsName(ra,dec,filter,prefix='DES',ext='fits'):
+    """ Common function to set the Fits thumbnail name """
+    ra  = astrometry.dec2deg(ra/15.,sep="",plussign=False)
+    dec = astrometry.dec2deg(dec,   sep="",plussign=True)
+    namekwargs = locals()
+    outname = FITS_OUTNAME.format(**namekwargs)
+    return outname
+
+def get_thumbColorName(ra,dec,prefix='DES',ext='tif'):
+    """ Common function to set the Fits thumbnail name """
+    ra  = astrometry.dec2deg(ra/15.,sep="",plussign=False)
+    dec = astrometry.dec2deg(dec,   sep="",plussign=True)
+    namekwargs = locals()
+    outname = TIFF_OUTNAME.format(**namekwargs)
+    return outname
+
+#def fitscutter_MP(x):
+#    (filename, ra, dec, xsize, ysize,units,prefix) = x
+#    return fitscutter(filename, ra, dec, xsize, ysize,units,prefix)
+
 def fitscutter(filename, ra, dec, xsize=1.0, ysize=1.0, units='arcmin',prefix='DES'):
 
     """
     Makes cutouts around ra, dec for a give xsize and ysize
     ra,dec can be scalars or lists/arrays
     """
-
     # Check and fix inputs
     ra,dec,xsize,ysize = check_inputs(ra,dec,xsize,ysize)
 
@@ -137,7 +147,7 @@ def fitscutter(filename, ra, dec, xsize=1.0, ysize=1.0, units='arcmin',prefix='D
     h_wgt = ifits[wgt_hdu].read_header()
 
     # Get the pixel-scale of the input image
-    pixelscale = get_pixelscale(h_sci,units='arcsec')
+    pixelscale = astrometry.get_pixelscale(h_sci,units='arcsec')
 
     # Read in the WCS with wcsutil
     wcs = wcsutil.WCS(h_sci)
@@ -171,10 +181,8 @@ def fitscutter(filename, ra, dec, xsize=1.0, ysize=1.0, units='arcmin',prefix='D
         h_section_wgt = update_wcs_matrix(h_wgt,x0,y0,naxis1,naxis2)
 
         # Construct the name of the Thumbmail
-        RA     = astrometry.dec2deg(ra[k]/15.,sep="",plussign=False)
-        DEC    = astrometry.dec2deg(dec[k],   sep="",plussign=True)
-        FILTER = h_sci['FILTER'].strip()
-        outname = "%sJ%s%s_%s.fits" % (prefix,RA,DEC,FILTER)
+        filter = h_sci['FILTER'].strip()
+        outname = get_thumbFitsName(ra[k],dec[k],filter,prefix='DES')
 
         # Write out the file
         ofits = fitsio.FITS(outname,'rw',clobber=True)
@@ -186,10 +194,91 @@ def fitscutter(filename, ra, dec, xsize=1.0, ysize=1.0, units='arcmin',prefix='D
     return
 
 
-def color_thumbs():
-    return
+def get_stiff_parameter_set(tiffname,**kwargs):
+    """
+    Set the Stiff default options and have the options to
+    overwrite them with kwargs to this function.
+    """
+    stiff_parameters = {
+        "OUTFILE_NAME"     : tiffname,
+        "COMPRESSION_TYPE" : "JPEG",
+        }
+    stiff_parameters.update(kwargs)
+    return stiff_parameters
 
 
+def make_stiff_call(fitsfiles,tiffname,stiff_parameters={},list=False):
+
+    """ Make the stiff call for a set of input FITS filenames"""
+
+    pars = get_stiff_parameter_set(tiffname,**stiff_parameters)
+    stiff_conf = os.path.join(os.environ['DESTHUMBS_DIR'],'etc','default.stiff')
+
+    cmd_list = []
+    cmd_list.append("%s" % STIFF_EXE)
+    for fname in fitsfiles:
+        cmd_list.append( "%s" % fname)
+        
+    cmd_list.append("-c %s" % stiff_conf)
+    for param,value in pars.items():
+        cmd_list.append("-%s %s" % (param,value))
+
+    if list:
+        cmd = cmd_list
+    else:
+        cmd = ' '.join(cmd_list)
+    return cmd
+
+
+def get_colorset(avail_bands,color_set=None):
+    """
+    Get the optimal color set for DES Survey for a set of available bands
+    """
+    # 1. Check if desired color_set matches the available bands """
+    #if color_set:
+    inset = list( set(color_set) & set(avail_bands))        
+    if len(inset) == 3:
+        return color_set
+
+    # 2. Otherwise find the optimal one
+    CSET = False
+    for color_set in _CSETS:
+        if CSET: break
+        inset = list( set(color_set) & set(avail_bands))
+        if len(inset) == 3:
+            CSET = color_set
+    # 3. If no match return False
+    if not CSET:
+        CSET=False 
+    return CSET
+
+def color_radec(ra,dec,avail_bands,prefix='DES',colorset=['i','r','g'], stiff_parameters={}):
+
+    t0 = time.time()
+
+    # Set the output tiff name
+    tiffname = get_thumbColorName(ra,dec,prefix=prefix,ext='tif')
+
+    # Get colorset or match with available bands
+    CSET = get_colorset(avail_bands,colorset) 
+
+    if CSET is False:
+        print "# WARNING: Could not find a suitable filter set for color image for ra,dec: %s,%s" % (ra,dec)
+        return 
+    
+    fitsfiles = []
+    for BAND in CSET:
+        fitsthumb = get_thumbFitsName(ra,dec,BAND,prefix='DES',ext='fits')
+        fitsfiles.append( "%s" % fitsthumb)
+
+    cmd = make_stiff_call(fitsfiles,tiffname,stiff_parameters={},list=False)
+    status = subprocess.call(cmd,shell=True)#,stdout=log, stderr=log)
+    if status > 0:
+        print "***\nERROR while running Stiff***"
+    else:
+        print "# Total stiff time: %s" % desthumbs.elapsed_time(t0)
+
+    return 
 
 if __name__ == "__main__":
 

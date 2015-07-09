@@ -6,6 +6,7 @@ from despydb import desdbi
 import despyastro
 import desthumbs
 import numpy
+import time
 
 ALL_BANDS = ['g','r','i','z','Y']
 XSIZE_default = 1.0
@@ -61,7 +62,7 @@ def find_tilenames(ra,dec,dhn):
 
     return tilenames, indices 
 
-def get_coaddfiles_tilename(tilename,tag,dbh,bands='all'):
+def get_coaddfiles_tilename(tilename,dbh,tag,bands='all'):
 
     QUERY_COADDFILES_BANDS = """
     select distinct f.path, TILENAME, BAND from des_admin.COADD c, des_admin.filepath_desar f
@@ -71,14 +72,23 @@ def get_coaddfiles_tilename(tilename,tag,dbh,bands='all'):
              f.ID=c.ID and
              c.RUN in (select RUN from des_admin.RUNTAG where TAG='{TAG}')"""
 
+    QUERY_COADDFILES_ALL = """
+    select distinct f.path, TILENAME, BAND from des_admin.COADD c, des_admin.filepath_desar f
+             where
+             c.BAND IS NOT NULL and
+             c.TILENAME='{TILENAME}' and
+             f.ID=c.ID and
+             c.RUN in (select RUN from des_admin.RUNTAG where TAG='{TAG}')"""
+
     if bands == 'all':
-        sbands = "'" + "','".join(ALL_BANDS) + "'" # trick to format
+         #sbands = "'" + "','".join(ALL_BANDS) + "'" # trick to format
+        rec = despyastro.query2rec(QUERY_COADDFILES_ALL.format(TILENAME=tilename,TAG=tag),dbh)
     else:
         sbands = "'" + "','".join(bands) + "'" # trick to format
-
+        rec = despyastro.query2rec(QUERY_COADDFILES_BANDS.format(TILENAME=tilename,TAG=tag,BANDS=sbands),dbh)
+        
     # Return a record array with the query
-    return despyastro.query2rec(QUERY_COADDFILES_BANDS.format(TILENAME=tilename,TAG=tag,BANDS=sbands),dbh)
-
+    return rec 
 
 def cmdline():
      import argparse
@@ -87,15 +97,19 @@ def cmdline():
      # The positional arguments
      parser.add_argument("inputList", help="Input CSV file with positions (RA,DEC) and optional (XSIZE,YSIZE) in arcmins")
      
-     #The optional arguments for image retrieval
-     parser.add_argument("--xsize", type = float, action="store", default=None,
-                       help="Length of x-side in arcmins of image [default = 1]")
-     parser.add_argument("--ysize", type = float, action="store", default=None,
-                       help="Length of y-side of in arcmins image [default = 1]")
-     parser.add_argument("--tag", type = str, action="store", default = 'Y1A1_COADD',
-                       help="Tag used for retrieving files [default=Y1A1_COADD]")
-     parser.add_argument("--bands", type = str, action='store', nargs = '+', default='all',
-                       help="Bands used for images. Can either be 'all' (uses all bands, and is the default), or a list of individual bands")
+     # The optional arguments for image retrieval
+     parser.add_argument("--xsize", type=float, action="store", default=None,
+                         help="Length of x-side in arcmins of image [default = 1]")
+     parser.add_argument("--ysize", type=float, action="store", default=None,
+                         help="Length of y-side of in arcmins image [default = 1]")
+     parser.add_argument("--tag", type=str, action="store", default = 'Y1A1_COADD',
+                         help="Tag used for retrieving files [default=Y1A1_COADD]")
+     parser.add_argument("--bands", type=str, action='store', nargs = '+', default='all',
+                         help="Bands used for images. Can either be 'all' (uses all bands, and is the default), or a list of individual bands")
+     parser.add_argument("--prefix", type=str, action='store', default='DES',
+                         help="Prefix for thumbnail filenames [default='DES']")
+     parser.add_argument("--colorset", type=str, action='store', nargs = '+', default=['i','r','g'],
+                         help="Color Set to use for creation of color image [default=i r g]")
      args = parser.parse_args()
 
      print "# Will run:"
@@ -107,14 +121,11 @@ def cmdline():
 
 if __name__ == "__main__":
 
+    # Get the command-line arguments
     args = cmdline()
 
-    tag       = args.tag
-    bands     = args.bands
-    inputList = args.inputList
-
     # Read in with pandas
-    df       = pandas.read_csv(inputList)
+    df       = pandas.read_csv(args.inputList)
 
     ## Test that all required columns are present
     req_cols = ['RA','DEC']
@@ -151,14 +162,19 @@ if __name__ == "__main__":
         print "# Doing: %s" % tilename
 
         # 1. Get all of the filenames for a given tilename
-        filenames = get_coaddfiles_tilename(tilename,tag,dbh,bands=bands)
+        filenames = get_coaddfiles_tilename(tilename,dbh,args.tag,bands=args.bands)
         indx      = indices[tilename]
 
         # 2. Loop over all of the filename -- We could use multi-processing
         for f in filenames.PATH:
             filename = os.path.join(archive_root,f)
             print "# Cutting: %s" % filename
-            desthumbs.fitscutter(filename, ra[indx], dec[indx], xsize=xsize[indx], ysize=ysize[indx], units='arcmin',prefix='DES')
-            
+            desthumbs.fitscutter(filename, ra[indx], dec[indx], xsize=xsize[indx], ysize=ysize[indx], units='arcmin',prefix=args.prefix)
 
-        # 3. Create color images using stiff 
+
+        # 3. Create color images using stiff for each ra
+        avail_bands = filenames.BAND
+        NTHREADS = len(avail_bands)
+        for k in range(len(ra[indx])):
+            desthumbs.color_radec(ra[indx][k],dec[indx][k],avail_bands,prefix=args.prefix,colorset=args.colorset, stiff_parameters={'NTHREADS':NTHREADS})
+           

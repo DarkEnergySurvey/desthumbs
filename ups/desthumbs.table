@@ -1,0 +1,6 @@
+setupRequired(despyastro 0.3.1+0)
+setupRequired(despydb 2.0.0+2)
+setupRequired(fitsio 0.9.8rc1+0)
+
+envPrepend(PYTHONPATH, ${PRODUCT_DIR}/python)
+envPrepend(PATH, ${PRODUCT_DIR}/bin)
