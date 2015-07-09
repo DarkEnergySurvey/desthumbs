@@ -1,11 +1,15 @@
 #!/usr/bin/env python
 
-import pandas as pd
+import os,sys
+import pandas
 from despydb import desdbi
 import despyastro
+import desthumbs
+import numpy
 
-ALL_BANDS = "'g','r','i','z','Y'"
-
+ALL_BANDS = ['g','r','i','z','Y']
+XSIZE_default = 1.0
+YSIZE_default = 1.0
 
 def get_archive_root(dbh,archive_name='desardata',verb=False):
 
@@ -34,6 +38,29 @@ def find_tilename(ra,dec,dbh):
         return tilenames_dict['TILENAME'][0]
     return
 
+def find_tilenames(ra,dec,dhn):
+
+    """
+    Find the tilename for each ra,dec and bundle them as dictionaries per tilename
+    """
+
+    indices = {}
+    tilenames = []
+    for k in range(len(ra)):
+
+        tilename = find_tilename(ra[k],dec[k],dbh)
+        if not tilename: # No tilename found
+            # Here we could do something to store the failed (ra,dec) pairs
+            continue
+        # Store unique values and initialize list of indices grouped by tilename
+        if tilename not in tilenames:
+            indices[tilename]  = []
+            tilenames.append(tilename)
+
+        indices[tilename].append(k)
+
+    return tilenames, indices 
+
 def get_coaddfiles_tilename(tilename,tag,dbh,bands='all'):
 
     QUERY_COADDFILES_BANDS = """
@@ -45,78 +72,93 @@ def get_coaddfiles_tilename(tilename,tag,dbh,bands='all'):
              c.RUN in (select RUN from des_admin.RUNTAG where TAG='{TAG}')"""
 
     if bands == 'all':
-        sbands = ALL_BANDS
+        sbands = "'" + "','".join(ALL_BANDS) + "'" # trick to format
     else:
         sbands = "'" + "','".join(bands) + "'" # trick to format
 
     # Return a record array with the query
     return despyastro.query2rec(QUERY_COADDFILES_BANDS.format(TILENAME=tilename,TAG=tag,BANDS=sbands),dbh)
 
+
+def cmdline():
+     import argparse
+     parser = argparse.ArgumentParser(description="Retrieves FITS images within DES given the file and other parameters")
+     
+     # The positional arguments
+     parser.add_argument("inputList", help="Input CSV file with positions (RA,DEC) and optional (XSIZE,YSIZE) in arcmins")
+     
+     #The optional arguments for image retrieval
+     parser.add_argument("--xsize", type = float, action="store", default=None,
+                       help="Length of x-side in arcmins of image [default = 1]")
+     parser.add_argument("--ysize", type = float, action="store", default=None,
+                       help="Length of y-side of in arcmins image [default = 1]")
+     parser.add_argument("--tag", type = str, action="store", default = 'Y1A1_COADD',
+                       help="Tag used for retrieving files [default=Y1A1_COADD]")
+     parser.add_argument("--bands", type = str, action='store', nargs = '+', default='all',
+                       help="Bands used for images. Can either be 'all' (uses all bands, and is the default), or a list of individual bands")
+     args = parser.parse_args()
+
+     print "# Will run:"
+     print "# %s " % parser.prog
+     for key in vars(args):
+         print "# \t--%-10s\t%s" % (key,vars(args)[key])
+
+     return args
+
 if __name__ == "__main__":
 
-    # Todo:
-    # - Add logic for more than one tile, get the closest
-    # - Add logic to loop over RA,DEC
-    # - Group by TILENAME the resulss
-    # - use despyastro.query2rec() to get the filenames
-    # - Add query to get archive_root
-    # - Move query template to single location (?)
-    
-    df      = pd.read_csv('test.csv')
-    opt_cols= ['RA','DEC','XSIZE','YSIZE','ID','COLOR']
-    
-    print 'Columns = ', df.columns
+    args = cmdline()
 
-    # Test for columns
-    for c in opt_cols:
-        if c  in df.columns :
-            print 'column %s in file' % c
-        else:
-            print 'column %s not in file' % c
+    tag       = args.tag
+    bands     = args.bands
+    inputList = args.inputList
 
-    # this keep the pandas data frame
-    ra  = df.RA
-    dec = df.DEC
+    # Read in with pandas
+    df       = pandas.read_csv(inputList)
+
+    ## Test that all required columns are present
+    req_cols = ['RA','DEC']
+    for c in req_cols:
+        if c not in df.columns :
+            raise TypeError('column %s in file' % c)
+
     # this only keeps values
-    ra = df.RA.values #if you only want the values
+    ra  = df.RA.values #if you only want the values otherwise use df.RA
+    dec = df.DEC.values
 
-    # Defaults
-    tag = 'Y1A1_COADD'
-    bands = ['g','i','z']
-    bands = 'all'
+    # Check if  xsize,ysize are set from command-line or read from csv file
+    if args.xsize: xsize = numpy.array([args.xsize]*len(ra))
+    else:
+        try: xsize = df.XSIZE.values
+        except: xsize = numpy.array([XSIZE_default]*len(ra))
+        
+    if args.ysize: ysize = numpy.array([args.ysize]*len(ra))
+    else:
+        try: ysize = df.YSIZE.values
+        except: ysize = numpy.array([YSIZE_default]*len(ra))
 
     # Get DB handle
     dbh = desdbi.DesDbi(section='db-desoper')
 
     # Get archive_root
-    archive_root = get_archive_root(dbh,archive_name='desardata',verb=True)
+    archive_root = get_archive_root(dbh,archive_name='desardata',verb=False)
 
-    # Find all of the tilenames, for ra,dec array
-    tilenames = []
-    for k in range(len(ra)):
-        tilename = find_tilename(ra[k],dec[k],dbh)
-        if not tilename: # No tilename found
-            # Here we could do something to store the failed (ra,dec) pairs
-            continue
-        # Store unique values
-        if tilename not in tilenames:
-            tilenames.append(tilename)
+    # Find all of the tilenames, indices grouped per tile
+    tilenames,indices = find_tilenames(ra,dec,dbh)
 
-    filenames = {}
+    # Loop over all of the tilenames
     for tilename in tilenames:
-        filenames[tilename] = get_coaddfiles_tilename(tilename,tag,dbh,bands=bands)
-        #print x.dtype.names
-        print filenames[tilename].PATH
+        print "# Doing: %s" % tilename
 
+        # 1. Get all of the filenames for a given tilename
+        filenames = get_coaddfiles_tilename(tilename,tag,dbh,bands=bands)
+        indx      = indices[tilename]
 
+        # 2. Loop over all of the filename -- We could use multi-processing
+        for f in filenames.PATH:
+            filename = os.path.join(archive_root,f)
+            print "# Cutting: %s" % filename
+            desthumbs.fitscutter(filename, ra[indx], dec[indx], xsize=xsize[indx], ysize=ysize[indx], units='arcmin',prefix='DES')
+            
 
-    print filenames['DES0005+0001'].PATH
-
-    #print filenames['DES0005+0001'][ filenames['DES0005+0001']['BAND'] == 'z' ].PATH
-    #print filenames['DES0005+0001'][ filenames['DES0005+0001']['BAND'] == 'r' ].PATH
-
-    #for file in filenames['DES0005+0001']:
-    #    print 
-
-    #print filenames['DES0005+0001']['PATH']
-        
+        # 3. Create color images using stiff 
