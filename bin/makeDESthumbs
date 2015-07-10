@@ -50,9 +50,6 @@ def cmdline():
 
 if __name__ == "__main__":
 
-    # TODO:
-    # - Control logger
-
     # Get the command-line arguments
     args = cmdline()
 
