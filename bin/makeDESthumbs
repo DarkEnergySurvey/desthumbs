@@ -2,12 +2,13 @@
 
 import os,sys
 import pandas
-import desthumbs 
-from despydb import desdbi
 import numpy
 import time
-from despymisc.miscutils import elapsed_time 
 import multiprocessing as mp
+
+import desthumbs 
+from despydb import desdbi
+from despymisc.miscutils import elapsed_time 
 
 XSIZE_default = 1.0
 YSIZE_default = 1.0
