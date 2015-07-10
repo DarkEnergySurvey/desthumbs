@@ -14,8 +14,8 @@ setup(name='desthumbs',
       packages = ['desthumbs'],
       package_dir = {'': 'python'},
       scripts =  ['bin/makeDESthumbs'],
-      data_files=[('ups',['ups/desthumbs.table'])
-                  ('etc',  glob.glob("etc/*.*"))
+      data_files=[('ups',['ups/desthumbs.table']),
+                  ('etc',  glob.glob("etc/*.*")),
                   ],
       )
 
