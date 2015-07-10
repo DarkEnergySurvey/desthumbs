@@ -1,2 +1,2 @@
-from . desthumbs  import *
+from . thumbslib  import *
 from . tilefinder import *
