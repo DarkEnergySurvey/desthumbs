@@ -15,8 +15,9 @@ import numpy
 import subprocess
 
 # Naming template
-FITS_OUTNAME = "{prefix}J{ra}{dec}_{filter}.{ext}"
-TIFF_OUTNAME = "{prefix}J{ra}{dec}.{ext}"
+FITS_OUTNAME  = "{outdir}/{prefix}J{ra}{dec}_{filter}.{ext}"
+TIFF_OUTNAME  = "{outdir}/{prefix}J{ra}{dec}.{ext}"
+LOG_OUTNAME   = "{outdir}/{prefix}J{ra}{dec}.{ext}"
 STIFF_EXE = 'stiff'
 
 # Definitions for the color filter sets we'd like to use, by priority
@@ -89,27 +90,32 @@ def check_inputs(ra,dec,xsize,ysize):
         raise TypeError('RA, DEC and XSIZE and YSIZE need to be the same length')
     return ra,dec,xsize,ysize
 
-def get_thumbFitsName(ra,dec,filter,prefix='DES',ext='fits'):
+def get_thumbFitsName(ra,dec,filter,prefix='DES',ext='fits',outdir=os.getcwd()):
     """ Common function to set the Fits thumbnail name """
     ra  = astrometry.dec2deg(ra/15.,sep="",plussign=False)
     dec = astrometry.dec2deg(dec,   sep="",plussign=True)
-    namekwargs = locals()
-    outname = FITS_OUTNAME.format(**namekwargs)
+    kw = locals()
+    outname = FITS_OUTNAME.format(**kw)
     return outname
 
-def get_thumbColorName(ra,dec,prefix='DES',ext='tif'):
+def get_thumbColorName(ra,dec,prefix='DES',ext='tif',outdir=os.getcwd()):
     """ Common function to set the Fits thumbnail name """
     ra  = astrometry.dec2deg(ra/15.,sep="",plussign=False)
     dec = astrometry.dec2deg(dec,   sep="",plussign=True)
-    namekwargs = locals()
-    outname = TIFF_OUTNAME.format(**namekwargs)
+    kw = locals()
+    outname = TIFF_OUTNAME.format(**kw)
     return outname
 
-#def fitscutter_MP(x):
-#    (filename, ra, dec, xsize, ysize,units,prefix) = x
-#    return fitscutter(filename, ra, dec, xsize, ysize,units,prefix)
+def get_thumbLogName(ra,dec,prefix='DES',ext='log',outdir=os.getcwd()):
+    """ Common function to set the Fits thumbnail name """
+    ra  = astrometry.dec2deg(ra/15.,sep="",plussign=False)
+    dec = astrometry.dec2deg(dec,   sep="",plussign=True)
+    kw = locals()
+    outname = LOG_OUTNAME.format(**kw)
+    return outname
 
-def fitscutter(filename, ra, dec, xsize=1.0, ysize=1.0, units='arcmin',prefix='DES',verb=False):
+
+def fitscutter(filename, ra, dec, xsize=1.0, ysize=1.0, units='arcmin',prefix='DES',outdir=os.getcwd(),verb=False):
 
     """
     Makes cutouts around ra, dec for a give xsize and ysize
@@ -177,7 +183,7 @@ def fitscutter(filename, ra, dec, xsize=1.0, ysize=1.0, units='arcmin',prefix='D
 
         # Construct the name of the Thumbmail
         filter = h_sci['FILTER'].strip()
-        outname = get_thumbFitsName(ra[k],dec[k],filter,prefix='DES')
+        outname = get_thumbFitsName(ra[k],dec[k],filter,prefix=prefix,outdir=outdir)
 
         # Write out the file
         ofits = fitsio.FITS(outname,'rw',clobber=True)
@@ -247,10 +253,9 @@ def get_colorset(avail_bands,color_set=None):
         CSET=False 
     return CSET
 
-def color_radec(ra,dec,avail_bands,prefix='DES',colorset=['i','r','g'], stiff_parameters={}):
+def color_radec(ra,dec,avail_bands,prefix='DES',colorset=['i','r','g'], stiff_parameters={},outdir=os.getcwd(),verb=False):
 
     t0 = time.time()
-
 
     # Get colorset or match with available bands
     CSET = get_colorset(avail_bands,colorset) 
@@ -263,21 +268,23 @@ def color_radec(ra,dec,avail_bands,prefix='DES',colorset=['i','r','g'], stiff_pa
     # HERE WE COULD LOOP OVER RA,DEC if they are lists!
 
     # Set the output tiff name
-    tiffname = get_thumbColorName(ra,dec,prefix=prefix,ext='tif')
+    tiffname = get_thumbColorName(ra,dec,prefix=prefix,ext='tif',outdir=outdir)
 
     # Set the names of the input files
     fitsfiles = []
     for BAND in CSET:
-        fitsthumb = get_thumbFitsName(ra,dec,BAND,prefix='DES',ext='fits')
+        fitsthumb = get_thumbFitsName(ra,dec,BAND,prefix='DES',ext='fits',outdir=outdir)
         fitsfiles.append( "%s" % fitsthumb)
 
     # Build the cmd to call
+    logfile = get_thumbLogName(ra,dec,prefix=prefix,ext='stifflog',outdir=outdir)
+    log = open(logfile,"w")
     cmd = make_stiff_call(fitsfiles,tiffname,stiff_parameters={},list=False)
-    status = subprocess.call(cmd,shell=True)#,stdout=log, stderr=log)
+    status = subprocess.call(cmd,shell=True,stdout=log, stderr=log)
     if status > 0:
         print "***\nERROR while running Stiff***"
     else:
-        print "# Total stiff time: %s" % elapsed_time(t0)
+        if verb: print "# Total stiff time: %s" % elapsed_time(t0)
 
     ## ----------------------------------- ##
 

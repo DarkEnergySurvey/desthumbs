@@ -35,6 +35,10 @@ def cmdline():
                          help="Color Set to use for creation of color image [default=i r g]")
      parser.add_argument("--MP", action='store_true', default=False,
                          help="Run in multiple core [default=False]")
+     parser.add_argument("--verb", action='store_true', default=False,
+                         help="Turn on verbose mode [default=False]")
+     parser.add_argument("--outdir", type=str, action='store', default=os.getcwd(),
+                         help="Output directory location [default='./']")
      args = parser.parse_args()
 
      print "# Will run:"
@@ -47,11 +51,7 @@ def cmdline():
 if __name__ == "__main__":
 
     # TODO:
-    # - Cotrol logginh
-    # - Move function to libraries:
-    #   desthumbs.py --> desthumblib.py
-    #   find_tiles.py --> tilefinder.py
-    #   find_tiles.py --> makeDESthumbs
+    # - Control logger
 
     # Get the command-line arguments
     args = cmdline()
@@ -87,7 +87,13 @@ if __name__ == "__main__":
     archive_root = desthumbs.get_archive_root(dbh,archive_name='desardata',verb=False)
 
     # Find all of the tilenames, indices grouped per tile
+    if args.verb: print "# Finding tilename for each input position"
     tilenames,indices = desthumbs.find_tilenames(ra,dec,dbh)
+
+    # Make sure that outdir exists
+    if not os.path.exists(args.outdir):
+         if args.verb: print "# Creating: %s" % args.outdir
+         os.makedirs(args.outdir)
 
     # Loop over all of the tilenames
     t0 = time.time()
@@ -110,8 +116,9 @@ if __name__ == "__main__":
         for f in filenames.PATH:
             filename = os.path.join(archive_root,f)
             ar = (filename, ra[indx], dec[indx])
-            kw = {'xsize':xsize[indx], 'ysize':ysize[indx], 'units':'arcmin', 'prefix':args.prefix}
-            print "# Cutting: %s" % filename
+            kw = {'xsize':xsize[indx], 'ysize':ysize[indx],
+                  'units':'arcmin', 'prefix':args.prefix, 'outdir':args.outdir,'verb':args.verb}
+            if args.verb: print "# Cutting: %s" % filename
             if args.MP:
                 NP = len(avail_bands)
                 p[filename] = mp.Process(target=desthumbs.fitscutter, args=ar, kwargs=kw)
@@ -129,7 +136,10 @@ if __name__ == "__main__":
             desthumbs.color_radec(ra[indx][k],dec[indx][k],avail_bands,
                                   prefix=args.prefix,
                                   colorset=args.colorset,
+                                  outdir=args.outdir,
+                                  verb=args.verb,
                                   stiff_parameters={'NTHREADS':NP})
-        print "Tile:%s time:%s" % (tilename,elapsed_time(t1))
 
-    print "GrandTotal time:%s" % elapsed_time(t0)
+        if args.verb: print "# Time %s: %s" % (tilename,elapsed_time(t1))
+
+    print "\n*** Grand Total time:%s ***\n" % elapsed_time(t0)
