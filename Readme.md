@@ -20,6 +20,7 @@ Examples
 --------
 
 To Get the thumbnails for the postions in the file: inputfile.csv
+
 ```
    makeDESthumbs inputfile.csv --xsize 1.5 --ysize 1.5 --tag Y1A1_COADD --MP
 ```
