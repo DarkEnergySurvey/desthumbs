@@ -9,6 +9,7 @@ import fitsio
 import os,sys
 from despyastro import astrometry
 from despyastro import wcsutil
+from despymisc.miscutils import elapsed_time 
 import time
 import numpy
 import subprocess
@@ -25,15 +26,6 @@ _CSET2 = ['z','r','g']
 _CSET3 = ['z','i','g']
 _CSET4 = ['z','i','r']
 _CSETS = (_CSET1,_CSET2,_CSET3,_CSET4)
-
-# Format time
-def elapsed_time(t1,verb=False):
-    import time
-    t2    = time.time()
-    stime = "%dm %2.2fs" % ( int( (t2-t1)/60.), (t2-t1) - 60*int((t2-t1)/60.))
-    if verb:
-        print >>sys.stderr,"Elapsed time: %s" % stime
-    return stime
 
 def get_coadd_hdu_extensions_byfilename(filename):
     """
@@ -117,7 +109,7 @@ def get_thumbColorName(ra,dec,prefix='DES',ext='tif'):
 #    (filename, ra, dec, xsize, ysize,units,prefix) = x
 #    return fitscutter(filename, ra, dec, xsize, ysize,units,prefix)
 
-def fitscutter(filename, ra, dec, xsize=1.0, ysize=1.0, units='arcmin',prefix='DES'):
+def fitscutter(filename, ra, dec, xsize=1.0, ysize=1.0, units='arcmin',prefix='DES',verb=False):
 
     """
     Makes cutouts around ra, dec for a give xsize and ysize
@@ -169,6 +161,9 @@ def fitscutter(filename, ra, dec, xsize=1.0, ysize=1.0, units='arcmin',prefix='D
         x1 = x0-dx
         x2 = x0+dx
 
+        if y1<0: y1=0
+        if x1<0: x1=0
+
         # Create a canvas
         im_section_sci = numpy.zeros((naxis1,naxis2))
         im_section_wft = numpy.zeros((naxis1,naxis2))
@@ -189,7 +184,7 @@ def fitscutter(filename, ra, dec, xsize=1.0, ysize=1.0, units='arcmin',prefix='D
         ofits.write(im_section_sci,header=h_section_sci)
         ofits.write(im_section_wgt,header=h_section_wgt)
         ofits.close()
-        print >>sys.stderr,"# Wrote: %s" % outname
+        if verb: print "# Wrote: %s" % outname
       
     return
 
@@ -282,7 +277,7 @@ def color_radec(ra,dec,avail_bands,prefix='DES',colorset=['i','r','g'], stiff_pa
     if status > 0:
         print "***\nERROR while running Stiff***"
     else:
-        print "# Total stiff time: %s" % desthumbs.elapsed_time(t0)
+        print "# Total stiff time: %s" % elapsed_time(t0)
 
     ## ----------------------------------- ##
 

@@ -2,91 +2,15 @@
 
 import os,sys
 import pandas
+import desthumbs 
 from despydb import desdbi
-import despyastro
-import desthumbs
 import numpy
 import time
+from despymisc.miscutils import elapsed_time 
+import multiprocessing as mp
 
 XSIZE_default = 1.0
 YSIZE_default = 1.0
-
-def get_archive_root(dbh,archive_name='desardata',verb=False):
-
-    """ Gets the archive root for an archive_name -- usually /archive_data/Archive """
-    query = "select archive_root from archive_sites where location_name='%s'"  % archive_name
-    if verb:
-        print "# Getting the archive root name for section: %s" % archive_name
-        print "# Will execute the SQL query:\n********\n** %s\n********" % query
-    cur = dbh.cursor()
-    cur.execute(query)
-    archive_root = cur.fetchone()[0]
-    cur.close()
-    return archive_root
-
-def find_tilename(ra,dec,dbh):
-
-    QUERY_TILENAME_RADEC = """
-    select TILENAME from felipe.COADDTILE_NEW
-           where (({RA} BETWEEN RACMIN and RACMAX) AND ({DEC} BETWEEN DECCMIN and DECCMAX))
-    """
-    tilenames_dict = despyastro.query2dict_of_columns(QUERY_TILENAME_RADEC.format(RA=ra,DEC=dec),dbh,array=False)
-    if len(tilenames_dict)<1:
-        print "# WARNING: No tile found at ra:%s, dec:%s" % (ra,dec)
-        return False
-    else:
-        return tilenames_dict['TILENAME'][0]
-    return
-
-def find_tilenames(ra,dec,dhn):
-
-    """
-    Find the tilename for each ra,dec and bundle them as dictionaries per tilename
-    """
-
-    indices = {}
-    tilenames = []
-    for k in range(len(ra)):
-
-        tilename = find_tilename(ra[k],dec[k],dbh)
-        if not tilename: # No tilename found
-            # Here we could do something to store the failed (ra,dec) pairs
-            continue
-        # Store unique values and initialize list of indices grouped by tilename
-        if tilename not in tilenames:
-            indices[tilename]  = []
-            tilenames.append(tilename)
-
-        indices[tilename].append(k)
-
-    return tilenames, indices 
-
-def get_coaddfiles_tilename(tilename,dbh,tag,bands='all'):
-
-    QUERY_COADDFILES_BANDS = """
-    select distinct f.path, TILENAME, BAND from des_admin.COADD c, des_admin.filepath_desar f
-             where
-             c.BAND in ({BANDS}) and
-             c.TILENAME='{TILENAME}' and
-             f.ID=c.ID and
-             c.RUN in (select RUN from des_admin.RUNTAG where TAG='{TAG}')"""
-
-    QUERY_COADDFILES_ALL = """
-    select distinct f.path, TILENAME, BAND from des_admin.COADD c, des_admin.filepath_desar f
-             where
-             c.BAND IS NOT NULL and
-             c.TILENAME='{TILENAME}' and
-             f.ID=c.ID and
-             c.RUN in (select RUN from des_admin.RUNTAG where TAG='{TAG}')"""
-
-    if bands == 'all':
-        rec = despyastro.query2rec(QUERY_COADDFILES_ALL.format(TILENAME=tilename,TAG=tag),dbh)
-    else:
-        sbands = "'" + "','".join(bands) + "'" # trick to format
-        rec = despyastro.query2rec(QUERY_COADDFILES_BANDS.format(TILENAME=tilename,TAG=tag,BANDS=sbands),dbh)
-        
-    # Return a record array with the query
-    return rec 
 
 def cmdline():
      import argparse
@@ -108,6 +32,8 @@ def cmdline():
                          help="Prefix for thumbnail filenames [default='DES']")
      parser.add_argument("--colorset", type=str, action='store', nargs = '+', default=['i','r','g'],
                          help="Color Set to use for creation of color image [default=i r g]")
+     parser.add_argument("--MP", action='store_true', default=False,
+                         help="Run in multiple core [default=False]")
      args = parser.parse_args()
 
      print "# Will run:"
@@ -118,6 +44,13 @@ def cmdline():
      return args
 
 if __name__ == "__main__":
+
+    # TODO:
+    # - Cotrol logginh
+    # - Move function to libraries:
+    #   desthumbs.py --> desthumblib.py
+    #   find_tiles.py --> tilefinder.py
+    #   find_tiles.py --> makeDESthumbs
 
     # Get the command-line arguments
     args = cmdline()
@@ -150,31 +83,52 @@ if __name__ == "__main__":
     dbh = desdbi.DesDbi(section='db-desoper')
 
     # Get archive_root
-    archive_root = get_archive_root(dbh,archive_name='desardata',verb=False)
+    archive_root = desthumbs.get_archive_root(dbh,archive_name='desardata',verb=False)
 
     # Find all of the tilenames, indices grouped per tile
-    tilenames,indices = find_tilenames(ra,dec,dbh)
+    tilenames,indices = desthumbs.find_tilenames(ra,dec,dbh)
 
     # Loop over all of the tilenames
+    t0 = time.time()
+    Ntile = 0
     for tilename in tilenames:
-        print "# Doing: %s" % tilename
+
+        t1 = time.time()
+        Ntile = Ntile+1
+        print "# ----------------------------------------------------"
+        print "# Doing: %s [%s/%s]" % (tilename,Ntile,len(tilenames))
+        print "# -----------------------------------------------------"
 
         # 1. Get all of the filenames for a given tilename
-        filenames = get_coaddfiles_tilename(tilename,dbh,args.tag,bands=args.bands)
+        filenames = desthumbs.get_coaddfiles_tilename(tilename,dbh,args.tag,bands=args.bands)
         indx      = indices[tilename]
+        avail_bands = filenames.BAND
 
         # 2. Loop over all of the filename -- We could use multi-processing
+        p={}
         for f in filenames.PATH:
             filename = os.path.join(archive_root,f)
+            ar = (filename, ra[indx], dec[indx])
+            kw = {'xsize':xsize[indx], 'ysize':ysize[indx], 'units':'arcmin', 'prefix':args.prefix}
             print "# Cutting: %s" % filename
-            desthumbs.fitscutter(filename, ra[indx], dec[indx], xsize=xsize[indx], ysize=ysize[indx], units='arcmin',prefix=args.prefix)
+            if args.MP:
+                NP = len(avail_bands)
+                p[filename] = mp.Process(target=desthumbs.fitscutter, args=ar, kwargs=kw)
+                p[filename].start()
+            else:
+                NP = 1
+                desthumbs.fitscutter(*ar,**kw)
+
+        # Make sure all process are closed before proceeding
+        if args.MP:
+            for filename in p.keys(): p[filename].join()
 
         # 3. Create color images using stiff for each ra,dec and loop over (ra,dec)
-        avail_bands = filenames.BAND
-        NTHREADS = len(avail_bands)
         for k in range(len(ra[indx])):
             desthumbs.color_radec(ra[indx][k],dec[indx][k],avail_bands,
                                   prefix=args.prefix,
                                   colorset=args.colorset,
-                                  stiff_parameters={'NTHREADS':NTHREADS})
-           
+                                  stiff_parameters={'NTHREADS':NP})
+        print "Tile:%s time:%s" % (tilename,elapsed_time(t1))
+
+    print "GrandTotal time:%s" % elapsed_time(t0)
