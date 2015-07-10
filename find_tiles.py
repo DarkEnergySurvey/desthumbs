@@ -122,8 +122,8 @@ if __name__ == "__main__":
     # Get the command-line arguments
     args = cmdline()
 
-    # Read in with pandas
-    df       = pandas.read_csv(args.inputList)
+    # Read in CSV file with pandas
+    df = pandas.read_csv(args.inputList)
 
     ## Test that all required columns are present
     req_cols = ['RA','DEC']
