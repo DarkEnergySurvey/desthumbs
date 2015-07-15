@@ -22,11 +22,21 @@ def get_archive_root(dbh,archive_name='desardata',verb=False):
 
 def find_tilename(ra,dec,dbh):
 
+    # For now we will use the old (and wrong) set of corner
+    # definitions to be consistent with the Old Schema
+    QUERY_TILENAME_RADEC_OLDSCHEMA = """
+    select TILENAME from COADDTILE
+           where (({RA} BETWEEN URALL and URAUR) AND ({DEC} BETWEEN UDECLL and UDECUR))
+    """
+
+    # In the future we want to use this one
     QUERY_TILENAME_RADEC = """
     select TILENAME from felipe.COADDTILE_NEW
            where (({RA} BETWEEN RACMIN and RACMAX) AND ({DEC} BETWEEN DECCMIN and DECCMAX))
     """
-    tilenames_dict = despyastro.query2dict_of_columns(QUERY_TILENAME_RADEC.format(RA=ra,DEC=dec),dbh,array=False)
+    #tilenames_dict = despyastro.query2dict_of_columns(QUERY_TILENAME_RADEC.format(RA=ra,DEC=dec),dbh,array=False)
+    tilenames_dict = despyastro.query2dict_of_columns(QUERY_TILENAME_RADEC_OLDSCHEMA.format(RA=ra,DEC=dec),dbh,array=False)
+    
     if len(tilenames_dict)<1:
         print "# WARNING: No tile found at ra:%s, dec:%s" % (ra,dec)
         return False
