@@ -27,6 +27,8 @@ def cmdline():
                          help="Length of y-side of in arcmins image [default = 1]")
      parser.add_argument("--tag", type=str, action="store", default = 'Y1A1_COADD',
                          help="Tag used for retrieving files [default=Y1A1_COADD]")
+     parser.add_argument("--coaddtable", type=str, action="store", default=None ,
+                         help="COADD table name to query if COADDS_ID are provided instead of RA,DEC in the input csv file")
      parser.add_argument("--bands", type=str, action='store', nargs = '+', default='all',
                          help="Bands used for images. Can either be 'all' (uses all bands, and is the default), or a list of individual bands")
      parser.add_argument("--prefix", type=str, action='store', default='DES',
@@ -48,6 +50,30 @@ def cmdline():
 
      return args
 
+
+def check_xysize(args,nobj):
+
+    # Check if  xsize,ysize are set from command-line or read from csv file
+    if args.xsize: xsize = numpy.array([args.xsize]*nobj)
+    else:
+        try: xsize = df.XSIZE.values
+        except: xsize = numpy.array([XSIZE_default]*nobj)
+        
+    if args.ysize: ysize = numpy.array([args.ysize]*nobj)
+    else:
+        try: ysize = df.YSIZE.values
+        except: ysize = numpy.array([YSIZE_default]*nobj)
+
+    return xsize,ysize
+
+def check_columns(cols,req_cols):
+
+    """ Test that all required columns are present"""
+    for c in req_cols:
+         if c not in cols :
+              raise TypeError('column %s in file' % c)
+    return
+
 if __name__ == "__main__":
 
     # Get the command-line arguments
@@ -56,26 +82,27 @@ if __name__ == "__main__":
     # Read in CSV file with pandas
     df = pandas.read_csv(args.inputList)
 
-    ## Test that all required columns are present
-    req_cols = ['RA','DEC']
-    for c in req_cols:
-        if c not in df.columns :
-            raise TypeError('column %s in file' % c)
-
-    # this only keeps values
-    ra  = df.RA.values #if you only want the values otherwise use df.RA
-    dec = df.DEC.values
-
-    # Check if  xsize,ysize are set from command-line or read from csv file
-    if args.xsize: xsize = numpy.array([args.xsize]*len(ra))
+    
+    # Decide if we do search by RA,DEC or by COADD_ID
+    if 'COADD_ID' in df.columns:
+         searchbyID = True
+         if not args.coaddtable:
+              raise Exception("ERROR: Need to provide --coaddtable <tablename> when using COADD_ID")
+         coadd_id =  dec = df.COADD_ID.values
+         nobj = len(coadd_id)
+         req_cols = ['COADD_ID']
     else:
-        try: xsize = df.XSIZE.values
-        except: xsize = numpy.array([XSIZE_default]*len(ra))
-        
-    if args.ysize: ysize = numpy.array([args.ysize]*len(ra))
-    else:
-        try: ysize = df.YSIZE.values
-        except: ysize = numpy.array([YSIZE_default]*len(ra))
+         searchbyID = False
+         ra  = df.RA.values #if you only want the values otherwise use df.RA
+         dec = df.DEC.values
+         nobj = len(ra)
+         req_cols = ['RA','DEC']
+    
+    # Check columns for consistency
+    check_columns(df.columns,req_cols)
+    
+    # Check the xsize and ysizes
+    xsize,ysize = check_xysize(args,nobj)
 
     # Get DB handle
     dbh = desdbi.DesDbi(section='db-desoper')
@@ -85,7 +112,14 @@ if __name__ == "__main__":
 
     # Find all of the tilenames, indices grouped per tile
     if args.verb: print "# Finding tilename for each input position"
-    tilenames,indices = desthumbs.find_tilenames(ra,dec,dbh)
+    if searchbyID:
+         tilenames,ra,dec,indices = desthumbs.find_tilenames_id(coadd_id,args.coaddtable,dbh)
+    else:
+         tilenames,indices = desthumbs.find_tilenames_radec(ra,dec,dbh)
+
+    # Make sure that all found tilenames *are* in the tag (aka data exists for them)
+    #tilenames_intag = desthumbs.get_tilenames_in_tag(dbh,args.tag)
+
 
     # Make sure that outdir exists
     if not os.path.exists(args.outdir):
@@ -104,7 +138,10 @@ if __name__ == "__main__":
         print "# -----------------------------------------------------"
 
         # 1. Get all of the filenames for a given tilename
-        filenames = desthumbs.get_coaddfiles_tilename(tilename,dbh,args.tag,bands=args.bands)
+        filenames = desthumbs.get_coaddfiles_tilename_bytag(tilename,dbh,args.tag,bands=args.bands)
+        if filenames is False:
+             print "# Skipping: %s -- not in TAG:%s " % (tilename,args.tag)
+             continue
         indx      = indices[tilename]
         avail_bands = filenames.BAND
 

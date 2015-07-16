@@ -20,7 +20,51 @@ def get_archive_root(dbh,archive_name='desardata',verb=False):
     cur.close()
     return archive_root
 
-def find_tilename(ra,dec,dbh):
+def find_tilename_id(id,tablename,dbh):
+
+    QUERY_TILENAME_ID = """
+    select TILENAME,RA,DEC from des_admin.{TABLENAME}
+           where COADD_OBJECTS_ID={ID}"""
+    
+    tilenames_dict = despyastro.query2dict_of_columns(QUERY_TILENAME_ID.format(ID=id,TABLENAME=tablename),dbh,array=False)
+    if len(tilenames_dict)<1:
+        print "# WARNING: No tile found at ra:%s, dec:%s" % (ra,dec)
+        return False
+    else:
+        return tilenames_dict['TILENAME'][0],tilenames_dict['RA'][0],tilenames_dict['DEC'][0]
+    return
+
+def find_tilenames_id(id,tablename,dbh):
+
+    import numpy
+
+    """
+    Find the tilename for each id and bundle them as dictionaries per tilename
+    """
+
+    indices = {}
+    tilenames = []
+    ras = []
+    decs = []
+    for k in range(len(id)):
+
+        tilename,ra,dec = find_tilename_id(id[k],tablename,dbh)
+        if not tilename: # No tilename found
+            # Here we could do something to store the failed (ra,dec) pairs
+            continue
+        ras.append(ra)
+        decs.append(dec)
+        # Store unique values and initialize list of indices grouped by tilename
+        if tilename not in tilenames:
+            indices[tilename]  = []
+            tilenames.append(tilename)
+
+        indices[tilename].append(k)
+
+    return tilenames, numpy.array(ras), numpy.array(decs), indices 
+
+
+def find_tilename_radec(ra,dec,dbh):
 
     # For now we will use the old (and wrong) set of corner
     # definitions to be consistent with the Old Schema
@@ -44,7 +88,7 @@ def find_tilename(ra,dec,dbh):
         return tilenames_dict['TILENAME'][0]
     return
 
-def find_tilenames(ra,dec,dbh):
+def find_tilenames_radec(ra,dec,dbh):
 
     """
     Find the tilename for each ra,dec and bundle them as dictionaries per tilename
@@ -54,7 +98,7 @@ def find_tilenames(ra,dec,dbh):
     tilenames = []
     for k in range(len(ra)):
 
-        tilename = find_tilename(ra[k],dec[k],dbh)
+        tilename = find_tilename_radec(ra[k],dec[k],dbh)
         if not tilename: # No tilename found
             # Here we could do something to store the failed (ra,dec) pairs
             continue
@@ -67,7 +111,41 @@ def find_tilenames(ra,dec,dbh):
 
     return tilenames, indices 
 
-def get_coaddfiles_tilename(tilename,dbh,tag,bands='all'):
+
+def get_coaddfiles_tilename_byid(tilename,id,dbh,coaddtable,bands='all'):
+
+    """
+    *** NOT USED AT THIS POINT ***
+    An alternate way of searching for the tilenames' corresponding
+    files by the COADD_OBJECT_ID in a given COADD_TABLE
+    """
+
+    QUERY_COADDFILES_ID_ALL = """
+    select distinct f.path, TILENAME, BAND from des_admin.COADD c, des_admin.filepath_desar f
+            where
+            c.BAND IS NOT NULL and 
+            and f.ID=c.ID and
+            c.TILENAME='{TILENAME}'
+            and c.RUN in (select run from des_admin.{COADDTABLE} where COADD_OBJECTS_ID={ID})
+            """
+    QUERY_COADDFILES_ID_BANDS = """
+    select distinct f.path, TILENAME, BAND from des_admin.COADD c, des_admin.filepath_desar f
+            where
+            c.BAND in ({BANDS}) and
+            and f.ID=c.ID and
+            c.TILENAME='{TILENAME}'
+            and c.RUN in (select run from des_admin.{COADDTABLE} where COADD_OBJECTS_ID={ID})
+            """
+    if bands == 'all':
+        rec = despyastro.query2rec(QUERY_COADDFILES_ID_ALL.format(TILENAME=tilename,ID=id,COADDTABLE=coaddtable),dbh)
+    else:
+        sbands = "'" + "','".join(bands) + "'" # trick to format
+        rec = despyastro.query2rec(QUERY_COADDFILES_ID_BANDS.format(TILENAME=tilename,ID=id,COADDTABLE=coaddtable,BANDS=sbands),dbh)
+        
+    # Return a record array with the query
+    return rec 
+
+def get_coaddfiles_tilename_bytag(tilename,dbh,tag,bands='all'):
 
     QUERY_COADDFILES_BANDS = """
     select distinct f.path, TILENAME, BAND from des_admin.COADD c, des_admin.filepath_desar f
@@ -94,3 +172,13 @@ def get_coaddfiles_tilename(tilename,dbh,tag,bands='all'):
     # Return a record array with the query
     return rec 
 
+
+def get_tilenames_in_tag(dbh,tag):
+
+    Q_TILENAMES_TAG = """
+    select distinct TILENAME from des_admin.COADD c, des_admin.filepath_desar f
+           where
+             f.ID=c.ID and
+             c.RUN in (select RUN from des_admin.RUNTAG where TAG='{TAG}')"""
+    return despyastro.query2rec(Q_TILENAMES_TAG.format(TAG=tag),dbh)
+    

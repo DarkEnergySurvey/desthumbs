@@ -1,4 +1,4 @@
-setupRequired(despyastro 0.3.1+0)
+setupRequired(despyastro 0.3.2+0)
 setupRequired(despymisc 0.2.3+2)
 setupRequired(despydb 2.0.0+2)
 setupRequired(fitsio 0.9.8rc1+0)
