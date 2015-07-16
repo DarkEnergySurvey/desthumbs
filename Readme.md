@@ -19,8 +19,14 @@ Features
 Examples
 --------
 
-To Get the thumbnails for the postions in the file: inputfile.csv
+To get the thumbnails for the postions in the file: inputfile_radec.csv in multi-process mode
 
 ```
-   makeDESthumbs inputfile.csv --xsize 1.5 --ysize 1.5 --tag Y1A1_COADD --MP
+   makeDESthumbs inputfile_radec.csv --xsize 1.5 --ysize 1.5 --tag Y1A1_COADD --MP
+```
+
+to get the thumbnails for a list COADD_OBJECTS_ID
+
+```
+   makeDESthumbs inputfile_id.csv --xsize 1.5 --ysize 1.5 --tag Y1A1_COADD --coaddtable Y1A1_COADD_OBJECTS --MP
 ```
