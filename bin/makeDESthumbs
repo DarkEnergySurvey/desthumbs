@@ -84,13 +84,13 @@ if __name__ == "__main__":
 
     
     # Decide if we do search by RA,DEC or by COADD_ID
-    if 'COADD_ID' in df.columns:
+    if 'COADD_OBJECTS_ID' in df.columns:
          searchbyID = True
          if not args.coaddtable:
-              raise Exception("ERROR: Need to provide --coaddtable <tablename> when using COADD_ID")
-         coadd_id =  dec = df.COADD_ID.values
+              raise Exception("ERROR: Need to provide --coaddtable <tablename> when using COADD_OBJECTS_ID")
+         coadd_id =  dec = df.COADD_OBJECTS_ID.values
          nobj = len(coadd_id)
-         req_cols = ['COADD_ID']
+         req_cols = ['COADD_OBJECTS_ID']
     else:
          searchbyID = False
          ra  = df.RA.values #if you only want the values otherwise use df.RA
