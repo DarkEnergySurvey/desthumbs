@@ -9,6 +9,7 @@ import multiprocessing as mp
 import desthumbs 
 from despydb import desdbi
 from despymisc.miscutils import elapsed_time 
+import cx_Oracle
 
 XSIZE_default = 1.0
 YSIZE_default = 1.0
@@ -41,6 +42,9 @@ def cmdline():
                          help="Turn on verbose mode [default=False]")
      parser.add_argument("--outdir", type=str, action='store', default=os.getcwd(),
                          help="Output directory location [default='./']")
+     parser.add_argument("--user", type=str, action='store',
+                         help="Username")
+     parser.add_argument("--password", type=str, action='store', help="password")
      args = parser.parse_args()
 
      print "# Will run:"
@@ -105,7 +109,15 @@ if __name__ == "__main__":
     xsize,ysize = check_xysize(args,nobj)
 
     # Get DB handle
-    dbh = desdbi.DesDbi(section='db-desoper')
+    ##dbh = desdbi.DesDbi(section='db-desoper')
+    section = "db-desoper"
+    host = 'leovip148.ncsa.uiuc.edu'
+    port = '1521'
+    name = 'desoper'
+    kwargs = {'host': host, 'port': port, 'service_name': name}
+     
+    dsn = cx_Oracle.makedsn(**kwargs)
+    dbh = cx_Oracle.connect(args.user, args.password, dsn=dsn)
 
     # Get archive_root
     archive_root = desthumbs.get_archive_root(dbh,archive_name='desardata',verb=False)
