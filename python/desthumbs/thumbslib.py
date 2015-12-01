@@ -14,6 +14,8 @@ import time
 import numpy
 import subprocess
 
+SOUT = sys.stdout
+
 # Naming template
 FITS_OUTNAME  = "{outdir}/{prefix}J{ra}{dec}_{filter}.{ext}"
 TIFF_OUTNAME  = "{outdir}/{prefix}J{ra}{dec}.{ext}"
@@ -190,7 +192,7 @@ def fitscutter(filename, ra, dec, xsize=1.0, ysize=1.0, units='arcmin',prefix='D
         ofits.write(im_section_sci,header=h_section_sci)
         ofits.write(im_section_wgt,header=h_section_wgt)
         ofits.close()
-        if verb: print "# Wrote: %s" % outname
+        if verb: SOUT.write("# Wrote: %s\n" % outname)
       
     return
 
@@ -261,7 +263,7 @@ def color_radec(ra,dec,avail_bands,prefix='DES',colorset=['i','r','g'], stiff_pa
     CSET = get_colorset(avail_bands,colorset) 
 
     if CSET is False:
-        print "# WARNING: Could not find a suitable filter set for color image for ra,dec: %s,%s" % (ra,dec)
+        SOUT.write("# WARNING: Could not find a suitable filter set for color image for ra,dec: %s,%s\n" % (ra,dec))
         return 
 
     ## ----------------------------------- ##
@@ -282,9 +284,9 @@ def color_radec(ra,dec,avail_bands,prefix='DES',colorset=['i','r','g'], stiff_pa
     cmd = make_stiff_call(fitsfiles,tiffname,stiff_parameters={},list=False)
     status = subprocess.call(cmd,shell=True,stdout=log, stderr=log)
     if status > 0:
-        print "***\nERROR while running Stiff***"
+        SOUT.write("***\nERROR while running Stiff***\n")
     else:
-        if verb: print "# Total stiff time: %s" % elapsed_time(t0)
+        if verb: SOUT.write("# Total stiff time: %s\n" % elapsed_time(t0))
 
     ## ----------------------------------- ##
 
@@ -310,5 +312,5 @@ if __name__ == "__main__":
     t0 = time.time()
     cutout(filename, ra, dec, xsize=xsize, ysize=ysize, units='arcmin',prefix='DES')
     #cutout(filename, ra, dec, xsize=1, ysize=1, units='arcmin',prefix='DES')
-    print "Done: %s" % elapsed_time(t0)
+    SOUT.write("Done: %s\n" % elapsed_time(t0))
 

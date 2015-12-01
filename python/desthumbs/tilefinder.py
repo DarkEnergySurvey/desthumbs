@@ -6,14 +6,16 @@ F. Menanteau, NCSA July 2015
 """
 
 import despyastro
+import sys
+SOUT = sys.stdout
 
 def get_archive_root(dbh,archive_name='desardata',verb=False):
 
     """ Gets the archive root for an archive_name -- usually /archive_data/Archive """
     query = "select archive_root from archive_sites where location_name='%s'"  % archive_name
     if verb:
-        print "# Getting the archive root name for section: %s" % archive_name
-        print "# Will execute the SQL query:\n********\n** %s\n********" % query
+        SOUT.write("# Getting the archive root name for section: %s\n" % archive_name)
+        SOUT.write("# Will execute the SQL query:\n********\n** %s\n********" % query)
     cur = dbh.cursor()
     cur.execute(query)
     archive_root = cur.fetchone()[0]
@@ -28,7 +30,7 @@ def find_tilename_id(id,tablename,dbh):
     
     tilenames_dict = despyastro.query2dict_of_columns(QUERY_TILENAME_ID.format(ID=id,TABLENAME=tablename),dbh,array=False)
     if len(tilenames_dict)<1:
-        print "# WARNING: No tile found at ra:%s, dec:%s" % (ra,dec)
+        SOUT.write("# WARNING: No tile found at ra:%s, dec:%s\n" % (ra,dec))
         return False
     else:
         return tilenames_dict['TILENAME'][0],tilenames_dict['RA'][0],tilenames_dict['DEC'][0]
@@ -82,7 +84,7 @@ def find_tilename_radec(ra,dec,dbh):
     tilenames_dict = despyastro.query2dict_of_columns(QUERY_TILENAME_RADEC_OLDSCHEMA.format(RA=ra,DEC=dec),dbh,array=False)
     
     if len(tilenames_dict)<1:
-        print "# WARNING: No tile found at ra:%s, dec:%s" % (ra,dec)
+        SOUT.write("# WARNING: No tile found at ra:%s, dec:%s\n" % (ra,dec))
         return False
     else:
         return tilenames_dict['TILENAME'][0]

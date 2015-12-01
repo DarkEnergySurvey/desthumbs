@@ -85,6 +85,10 @@ def check_columns(cols,req_cols):
 
 def run(args):
 
+    # The write log handle
+    sout = args.sout
+    desthumbs.tilefinder.SOUT = args.sout
+    desthumbs.thumbslib.SOUT = args.sout
      
     # Read in CSV file with pandas
     df = pandas.read_csv(args.inputList)
@@ -191,5 +195,5 @@ def run(args):
 
         if args.verb: sout.write("# Time %s: %s\n" % (tilename,elapsed_time(t1)))
 
-    sout.write("\n*** Grand Total time:%s\n***\n" % elapsed_time(t0))
+    sout.write("\n*** Grand Total time:%s ***\n" % elapsed_time(t0))
     return 
