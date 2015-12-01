@@ -14,6 +14,7 @@ import cx_Oracle
 XSIZE_default = 1.0
 YSIZE_default = 1.0
 
+
 def cmdline():
      import argparse
      parser = argparse.ArgumentParser(description="Retrieves FITS images within DES given the file and other parameters")
@@ -42,18 +43,22 @@ def cmdline():
                          help="Turn on verbose mode [default=False]")
      parser.add_argument("--outdir", type=str, action='store', default=os.getcwd(),
                          help="Output directory location [default='./']")
-     parser.add_argument("--user", type=str, action='store',
-                         help="Username")
+     parser.add_argument("--user", type=str, action='store',help="Username")
      parser.add_argument("--password", type=str, action='store', help="password")
+     parser.add_argument("--logfile", type=str, action='store', default=None,
+                         help="Output logfile")
      args = parser.parse_args()
 
-     print "# Will run:"
-     print "# %s " % parser.prog
+     if args.logfile:
+          sout = open(args.logfile,'w')
+     else:
+          sout = sys.stdout
+     args.sout = sout
+     sout.write("# Will run:\n")
+     sout.write("# %s \n" % parser.prog)
      for key in vars(args):
-         print "# \t--%-10s\t%s" % (key,vars(args)[key])
-
+         sout.write("# \t--%-10s\t%s\n" % (key,vars(args)[key]))
      return args
-
 
 def check_xysize(args,nobj):
 
@@ -79,6 +84,7 @@ def check_columns(cols,req_cols):
     return
 
 def run(args):
+
      
     # Read in CSV file with pandas
     df = pandas.read_csv(args.inputList)
@@ -106,7 +112,6 @@ def run(args):
 
     # Get DB handle
     if args.user and args.password:
-         print "# Both deinfe"
          section = "db-desoper"
          host = 'leovip148.ncsa.uiuc.edu'
          port = '1521'
@@ -121,7 +126,7 @@ def run(args):
     archive_root = desthumbs.get_archive_root(dbh,archive_name='desardata',verb=False)
 
     # Find all of the tilenames, indices grouped per tile
-    if args.verb: print "# Finding tilename for each input position"
+    if args.verb: sout.write("# Finding tilename for each input position\n")
     if searchbyID:
          tilenames,ra,dec,indices = desthumbs.find_tilenames_id(coadd_id,args.coaddtable,dbh)
     else:
@@ -133,7 +138,7 @@ def run(args):
 
     # Make sure that outdir exists
     if not os.path.exists(args.outdir):
-         if args.verb: print "# Creating: %s" % args.outdir
+         if args.verb: sout.write("# Creating: %s\n" % args.outdir)
          os.makedirs(args.outdir)
 
     # Loop over all of the tilenames
@@ -143,14 +148,14 @@ def run(args):
 
         t1 = time.time()
         Ntile = Ntile+1
-        print "# ----------------------------------------------------"
-        print "# Doing: %s [%s/%s]" % (tilename,Ntile,len(tilenames))
-        print "# -----------------------------------------------------"
+        sout.write("# ----------------------------------------------------\n")
+        sout.write("# Doing: %s [%s/%s]\n" % (tilename,Ntile,len(tilenames)) )
+        sout.write("# ----------------------------------------------------\n")
 
         # 1. Get all of the filenames for a given tilename
         filenames = desthumbs.get_coaddfiles_tilename_bytag(tilename,dbh,args.tag,bands=args.bands)
         if filenames is False:
-             print "# Skipping: %s -- not in TAG:%s " % (tilename,args.tag)
+             sout.write("# Skipping: %s -- not in TAG:%s \n" % (tilename,args.tag))
              continue
         indx      = indices[tilename]
         avail_bands = filenames.BAND
@@ -162,7 +167,7 @@ def run(args):
             ar = (filename, ra[indx], dec[indx])
             kw = {'xsize':xsize[indx], 'ysize':ysize[indx],
                   'units':'arcmin', 'prefix':args.prefix, 'outdir':args.outdir,'verb':args.verb}
-            if args.verb: print "# Cutting: %s" % filename
+            if args.verb: sout.write("# Cutting: %s\n" % filename)
             if args.MP:
                 NP = len(avail_bands)
                 p[filename] = mp.Process(target=desthumbs.fitscutter, args=ar, kwargs=kw)
@@ -184,7 +189,7 @@ def run(args):
                                   verb=args.verb,
                                   stiff_parameters={'NTHREADS':NP})
 
-        if args.verb: print "# Time %s: %s" % (tilename,elapsed_time(t1))
+        if args.verb: sout.write("# Time %s: %s\n" % (tilename,elapsed_time(t1)))
 
-    print "\n*** Grand Total time:%s ***\n" % elapsed_time(t0)
+    sout.write("\n*** Grand Total time:%s\n***\n" % elapsed_time(t0))
     return 
