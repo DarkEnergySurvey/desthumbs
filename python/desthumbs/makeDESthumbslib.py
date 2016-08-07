@@ -7,12 +7,21 @@ import time
 import multiprocessing as mp
 
 import desthumbs 
-from despydb import desdbi
-from despymisc.miscutils import elapsed_time 
 import cx_Oracle
 
 XSIZE_default = 1.0
 YSIZE_default = 1.0
+
+
+
+def elapsed_time(t1,verbose=False):
+    """ Formating of the elapsed time """
+    import time
+    t2    = time.time()
+    stime = "%dm %2.2fs" % ( int( (t2-t1)/60.), (t2-t1) - 60*int((t2-t1)/60.))
+    if verbose:
+        print "# Elapsed time: %s" % stime
+    return stime
 
 
 def cmdline():
@@ -115,7 +124,7 @@ def run(args):
     xsize,ysize = check_xysize(args,nobj)
 
     # Get DB handle
-    if args.user and args.password:
+    try:
          section = "db-desoper"
          host = 'leovip148.ncsa.uiuc.edu'
          port = '1521'
@@ -123,8 +132,8 @@ def run(args):
          kwargs = {'host': host, 'port': port, 'service_name': name}
          dsn = cx_Oracle.makedsn(**kwargs)
          dbh = cx_Oracle.connect(args.user, args.password, dsn=dsn)
-    else:
-         dbh = desdbi.DesDbi(section='db-desoper')
+    except:
+        pass
 
     # Get archive_root
     archive_root = desthumbs.get_archive_root(dbh,archive_name='desardata',verb=False)

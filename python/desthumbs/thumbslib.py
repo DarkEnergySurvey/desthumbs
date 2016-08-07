@@ -9,10 +9,20 @@ import fitsio
 import os,sys
 from despyastro import astrometry
 from despyastro import wcsutil
-from despymisc.miscutils import elapsed_time 
 import time
 import numpy
 import subprocess
+
+
+
+def elapsed_time(t1,verbose=False):
+    """ Formating of the elapsed time """
+    import time
+    t2    = time.time()
+    stime = "%dm %2.2fs" % ( int( (t2-t1)/60.), (t2-t1) - 60*int((t2-t1)/60.))
+    if verbose:
+        print "# Elapsed time: %s" % stime
+    return stime
 
 SOUT = sys.stdout
 
