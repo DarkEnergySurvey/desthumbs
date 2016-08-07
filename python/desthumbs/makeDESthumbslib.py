@@ -124,16 +124,13 @@ def run(args):
     xsize,ysize = check_xysize(args,nobj)
 
     # Get DB handle
-    try:
-         section = "db-desoper"
-         host = 'leovip148.ncsa.uiuc.edu'
-         port = '1521'
-         name = 'desoper'
-         kwargs = {'host': host, 'port': port, 'service_name': name}
-         dsn = cx_Oracle.makedsn(**kwargs)
-         dbh = cx_Oracle.connect(args.user, args.password, dsn=dsn)
-    except:
-        pass
+    section = "db-desoper"
+    host = 'leovip148.ncsa.uiuc.edu'
+    port = '1521'
+    name = 'desoper'
+    kwargs = {'host': host, 'port': port, 'service_name': name}
+    dsn = cx_Oracle.makedsn(**kwargs)
+    dbh = cx_Oracle.connect(args.user, args.password, dsn=dsn)
 
     # Get archive_root
     archive_root = desthumbs.get_archive_root(dbh,archive_name='desardata',verb=False)
