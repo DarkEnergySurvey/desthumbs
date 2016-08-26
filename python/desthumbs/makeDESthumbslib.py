@@ -69,7 +69,7 @@ def cmdline():
          sout.write("# \t--%-10s\t%s\n" % (key,vars(args)[key]))
      return args
 
-def check_xysize(args,nobj):
+def check_xysize(df,args,nobj):
 
     # Check if  xsize,ysize are set from command-line or read from csv file
     if args.xsize: xsize = numpy.array([args.xsize]*nobj)
@@ -121,7 +121,7 @@ def run(args):
     check_columns(df.columns,req_cols)
     
     # Check the xsize and ysizes
-    xsize,ysize = check_xysize(args,nobj)
+    xsize,ysize = check_xysize(df,args,nobj)
 
     # Get DB handle
     section = "db-desoper"
