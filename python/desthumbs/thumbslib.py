@@ -127,7 +127,7 @@ def get_thumbLogName(ra,dec,prefix='DES',ext='log',outdir=os.getcwd()):
     return outname
 
 
-def fitscutter(filename, ra, dec, xsize=1.0, ysize=1.0, units='arcmin',prefix='DES',outdir=os.getcwd(),verb=False):
+def fitscutter(filename, ra, dec, xsize=1.0, ysize=1.0, units='arcmin',prefix='DES',outdir=os.getcwd(),tilename=None,verb=False):
 
     """
     Makes cutouts around ra, dec for a give xsize and ysize
@@ -155,6 +155,13 @@ def fitscutter(filename, ra, dec, xsize=1.0, ysize=1.0, units='arcmin',prefix='D
     # Get the SCI and WGT headers
     h_sci = ifits[sci_hdu].read_header()
     h_wgt = ifits[wgt_hdu].read_header()
+
+    # Now we the tilename to the header
+    if tilename:
+        tile_rec = {'name': 'TILENAME', 'value':tilename, 'comment':'Name of DES parent TILENAME'},
+        h_sci.add_record(tile_rec)
+        h_wgt.add_record(tile_rec)
+
 
     # Get the pixel-scale of the input image
     pixelscale = astrometry.get_pixelscale(h_sci,units='arcsec')
