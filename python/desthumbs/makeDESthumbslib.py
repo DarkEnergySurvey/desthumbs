@@ -176,7 +176,8 @@ def run(args):
             filename = os.path.join(archive_root,f)
             ar = (filename, ra[indx], dec[indx])
             kw = {'xsize':xsize[indx], 'ysize':ysize[indx],
-                  'units':'arcmin', 'prefix':args.prefix, 'outdir':args.outdir,'verb':args.verb}
+                  'units':'arcmin', 'prefix':args.prefix, 'outdir':args.outdir,
+                  'tilename':tilename, 'verb':args.verb}
             if args.verb: sout.write("# Cutting: %s\n" % filename)
             if args.MP:
                 NP = len(avail_bands)

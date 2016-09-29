@@ -162,7 +162,6 @@ def fitscutter(filename, ra, dec, xsize=1.0, ysize=1.0, units='arcmin',prefix='D
         h_sci.add_record(tile_rec)
         h_wgt.add_record(tile_rec)
 
-
     # Get the pixel-scale of the input image
     pixelscale = astrometry.get_pixelscale(h_sci,units='arcsec')
 
