@@ -138,13 +138,19 @@ def run(args):
     # Find all of the tilenames, indices grouped per tile
     if args.verb: sout.write("# Finding tilename for each input position\n")
     if searchbyID:
-         tilenames,ra,dec,indices = desthumbs.find_tilenames_id(coadd_id,args.coaddtable,dbh)
+         tilenames,ra,dec,indices, tilenames_matched = desthumbs.find_tilenames_id(coadd_id,args.coaddtable,dbh)
     else:
-         tilenames,indices = desthumbs.find_tilenames_radec(ra,dec,dbh)
+         tilenames,indices, tilenames_matched = desthumbs.find_tilenames_radec(ra,dec,dbh)
 
+
+    # Add them back to pandas dataframe and write a file
+    df['TILENAME'] = tilenames_matched
+    matched_list = os.path.join(args.outdir,'matched_'+args.inputList)
+    df.to_csv(matched_list,index=False)
+    sout.write("# Wrote matched tilenames list to: %s\n" % matched_list)
+    
     # Make sure that all found tilenames *are* in the tag (aka data exists for them)
     #tilenames_intag = desthumbs.get_tilenames_in_tag(dbh,args.tag)
-
 
     # Make sure that outdir exists
     if not os.path.exists(args.outdir):

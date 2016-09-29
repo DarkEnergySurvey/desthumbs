@@ -158,7 +158,7 @@ def fitscutter(filename, ra, dec, xsize=1.0, ysize=1.0, units='arcmin',prefix='D
 
     # Now we the tilename to the header
     if tilename:
-        tile_rec = {'name': 'TILENAME', 'value':tilename, 'comment':'Name of DES parent TILENAME'},
+        tile_rec = {'name': 'TILENAME', 'value':tilename, 'comment':'Name of DES parent TILENAME'}
         h_sci.add_record(tile_rec)
         h_wgt.add_record(tile_rec)
 

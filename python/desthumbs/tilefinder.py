@@ -25,9 +25,9 @@ def get_archive_root(dbh,archive_name='desardata',verb=False):
 def find_tilename_id(id,tablename,dbh):
 
     QUERY_TILENAME_ID = """
-    select TILENAME,RA,DEC from des_admin.{TABLENAME}
+    select TILENAME,RA,DEC from des_admin.{TABLENAME}@dessci
            where COADD_OBJECTS_ID={ID}"""
-    
+
     tilenames_dict = despyastro.query2dict_of_columns(QUERY_TILENAME_ID.format(ID=id,TABLENAME=tablename),dbh,array=False)
     if len(tilenames_dict)<1:
         SOUT.write("# WARNING: No tile found at ra:%s, dec:%s\n" % (ra,dec))
@@ -46,11 +46,13 @@ def find_tilenames_id(id,tablename,dbh):
 
     indices = {}
     tilenames = []
+    tilenames_matched = []
     ras = []
     decs = []
     for k in range(len(id)):
 
         tilename,ra,dec = find_tilename_id(id[k],tablename,dbh)
+        tilenames_matched.append(tilename)
         if not tilename: # No tilename found
             # Here we could do something to store the failed (ra,dec) pairs
             continue
@@ -63,7 +65,7 @@ def find_tilenames_id(id,tablename,dbh):
 
         indices[tilename].append(k)
 
-    return tilenames, numpy.array(ras), numpy.array(decs), indices 
+    return tilenames, numpy.array(ras), numpy.array(decs), indices, tilenames_matched 
 
 
 def find_tilename_radec(ra,dec,dbh):
@@ -98,12 +100,17 @@ def find_tilenames_radec(ra,dec,dbh):
 
     indices = {}
     tilenames = []
+    tilenames_matched = []
     for k in range(len(ra)):
 
         tilename = find_tilename_radec(ra[k],dec[k],dbh)
+        tilenames_matched.append(tilename)
+
+        # Write out the results
         if not tilename: # No tilename found
             # Here we could do something to store the failed (ra,dec) pairs
             continue
+
         # Store unique values and initialize list of indices grouped by tilename
         if tilename not in tilenames:
             indices[tilename]  = []
@@ -111,7 +118,7 @@ def find_tilenames_radec(ra,dec,dbh):
 
         indices[tilename].append(k)
 
-    return tilenames, indices 
+    return tilenames, indices, tilenames_matched
 
 
 def get_coaddfiles_tilename_byid(tilename,id,dbh,coaddtable,bands='all'):
