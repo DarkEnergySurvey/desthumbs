@@ -157,7 +157,7 @@ def run(args):
     df['TILENAME'] = tilenames_matched
     # Get the thumbname base names and the them the pandas dataframe too
     df['THUMBNAME'] = get_base_names(tilenames_matched, ra, dec, prefix=args.prefix)
-    matched_list = os.path.join(args.outdir,'matched_'+args.inputList)
+    matched_list = os.path.join(args.outdir,'matched_'+os.path.basename(args.inputList))
     df.to_csv(matched_list,index=False)
     sout.write("# Wrote matched tilenames list to: %s\n" % matched_list)
     
