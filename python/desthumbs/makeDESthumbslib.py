@@ -92,6 +92,17 @@ def check_columns(cols,req_cols):
               raise TypeError('column %s in file' % c)
     return
 
+
+def get_base_names(tilenames, ra, dec, prefix='DES'):
+    names = []
+    for k in range(len(ra)):
+        if tilenames[k]:
+            name = desthumbs.get_thumbBaseName(ra[k],dec[k],prefix=prefix)
+        else:
+            name = False
+        names.append(name)
+    return names
+
 def run(args):
 
     # The write log handle
@@ -142,9 +153,10 @@ def run(args):
     else:
          tilenames,indices, tilenames_matched = desthumbs.find_tilenames_radec(ra,dec,dbh)
 
-
     # Add them back to pandas dataframe and write a file
     df['TILENAME'] = tilenames_matched
+    # Get the thumbname base names and the them the pandas dataframe too
+    df['THUMBNAME'] = get_base_names(tilenames_matched, ra, dec, prefix=args.prefix)
     matched_list = os.path.join(args.outdir,'matched_'+args.inputList)
     df.to_csv(matched_list,index=False)
     sout.write("# Wrote matched tilenames list to: %s\n" % matched_list)

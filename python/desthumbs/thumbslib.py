@@ -30,6 +30,7 @@ SOUT = sys.stdout
 FITS_OUTNAME  = "{outdir}/{prefix}J{ra}{dec}_{filter}.{ext}"
 TIFF_OUTNAME  = "{outdir}/{prefix}J{ra}{dec}.{ext}"
 LOG_OUTNAME   = "{outdir}/{prefix}J{ra}{dec}.{ext}"
+BASE_OUTNAME  = "{prefix}J{ra}{dec}"
 STIFF_EXE = 'stiff'
 
 # Definitions for the color filter sets we'd like to use, by priority
@@ -125,6 +126,15 @@ def get_thumbLogName(ra,dec,prefix='DES',ext='log',outdir=os.getcwd()):
     kw = locals()
     outname = LOG_OUTNAME.format(**kw)
     return outname
+
+def get_thumbBaseName(ra,dec,prefix='DES'):
+    """ Common function to set the Fits thumbnail name """
+    ra  = astrometry.dec2deg(ra/15.,sep="",plussign=False)
+    dec = astrometry.dec2deg(dec,   sep="",plussign=True)
+    kw = locals()
+    outname = BASE_OUTNAME.format(**kw)
+    return outname
+
 
 
 def fitscutter(filename, ra, dec, xsize=1.0, ysize=1.0, units='arcmin',prefix='DES',outdir=os.getcwd(),tilename=None,verb=False):
