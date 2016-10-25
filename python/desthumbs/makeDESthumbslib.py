@@ -8,6 +8,7 @@ import multiprocessing as mp
 
 import desthumbs 
 import cx_Oracle
+from despydb import desdbi
 
 XSIZE_default = 1.0
 YSIZE_default = 1.0
@@ -133,15 +134,20 @@ def run(args):
     
     # Check the xsize and ysizes
     xsize,ysize = check_xysize(df,args,nobj)
-
+    
     # Get DB handle
-    section = "db-desoper"
-    host = 'leovip148.ncsa.uiuc.edu'
-    port = '1521'
-    name = 'desoper'
-    kwargs = {'host': host, 'port': port, 'service_name': name}
-    dsn = cx_Oracle.makedsn(**kwargs)
-    dbh = cx_Oracle.connect(args.user, args.password, dsn=dsn)
+    try:
+        section = "db-desoper"
+        dbh = desdbi.DesDbi(section=section)
+    except:
+        host = 'leovip148.ncsa.uiuc.edu'
+        port = '1521'
+        name = 'desoper'
+        kwargs = {'host': host, 'port': port, 'service_name': name}
+        dsn = cx_Oracle.makedsn(**kwargs)
+        dbh = cx_Oracle.connect(args.user, args.password, dsn=dsn)
+
+    # Define the schema
     if args.tag[0:4] == 'SVA1' or args.tag[0:4] == 'Y1A1':
         schema = 'des_admin'
     else:
