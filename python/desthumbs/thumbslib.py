@@ -12,8 +12,7 @@ from despyastro import wcsutil
 import time
 import numpy
 import subprocess
-
-
+from collections import OrderedDict
 
 def elapsed_time(t1,verbose=False):
     """ Formating of the elapsed time """
@@ -136,6 +135,36 @@ def get_thumbBaseName(ra,dec,prefix='DES'):
     return outname
 
 
+def get_headers_hdus(filename):
+    
+    header = OrderedDict()
+    hdu = OrderedDict()   
+
+    # Case 1 -- for well-defined fitsfiles with EXTNAME
+    with fitsio.FITS(filename) as fits:
+        for k in xrange(len(fits)):
+            h = fits[k].read_header()
+            
+            # Make sure that we can get the EXTNAME
+            if not h.get('EXTNAME'):
+                continue
+            extname = h['EXTNAME'].strip()
+            if extname == 'COMPRESSED_IMAGE':
+                continue
+            header[extname] = h
+            hdu[extname] = k
+
+    # Case 2 -- older DESDM files without EXTNAME
+    if len(header) < 1:
+        (sci_hdu,wgt_hdu) = get_coadd_hdu_extensions_byfilename(filename)
+        fits = fitsio.FITS(filename)
+        header['SCI'] = fits[sci_hdu].read_header()
+        header['WGT'] = fits[wgt_hdu].read_header()
+        hdu['SCI'] = sci_hdu
+        hdu['WGT'] = wgt_hdu
+
+    return header,hdu
+        
 
 def fitscutter(filename, ra, dec, xsize=1.0, ysize=1.0, units='arcmin',prefix='DES',outdir=os.getcwd(),tilename=None,verb=False):
 
@@ -155,28 +184,34 @@ def fitscutter(filename, ra, dec, xsize=1.0, ysize=1.0, units='arcmin',prefix='D
         scale = 3600
     else:
         sys.exit("ERROR: must define units as arcses/arcmin/degree only")
- 
-    # Get the numbers for the file extensions
-    (sci_hdu,wgt_hdu) = get_coadd_hdu_extensions_byfilename(filename)
+
+    # Get header/extensions/hdu
+    header, hdunum = get_headers_hdus(filename)
+    extnames = header.keys()
+
+    # Now we add the tilename to the headers -- if not already present
+    if tilename and 'TILENAME' not in header['SCI']:
+        if verb: SOUT.write("Will add TILENAME keyword to header for file: %s\n" % filename)
+        tile_rec = {'name': 'TILENAME', 'value':tilename, 'comment':'Name of DES parent TILENAME'}
+        for EXTNAME in extnames:
+            header[EXTNAME].add_record(tile_rec)
+
+    # Get the pixel-scale of the input image
+    pixelscale = astrometry.get_pixelscale(header['SCI'],units='arcsec')
+
+    # Read in the WCS with wcsutil
+    wcs = wcsutil.WCS(header['SCI'])
+
+    # Extract the band/filter from the header
+    if 'BAND' in header['SCI']:
+        band = header['SCI']['BAND'].strip()
+    elif 'FILTER' in header['SCI']:
+        band = header['SCI']['FILTER'].strip()
+    else:
+        raise Exception("ERROR: Cannot provide suitable BAND/FILTER from SCI header")
 
     # Intitialize the FITS object
     ifits = fitsio.FITS(filename,'r')
-
-    # Get the SCI and WGT headers
-    h_sci = ifits[sci_hdu].read_header()
-    h_wgt = ifits[wgt_hdu].read_header()
-
-    # Now we the tilename to the header
-    if tilename:
-        tile_rec = {'name': 'TILENAME', 'value':tilename, 'comment':'Name of DES parent TILENAME'}
-        h_sci.add_record(tile_rec)
-        h_wgt.add_record(tile_rec)
-
-    # Get the pixel-scale of the input image
-    pixelscale = astrometry.get_pixelscale(h_sci,units='arcsec')
-
-    # Read in the WCS with wcsutil
-    wcs = wcsutil.WCS(h_sci)
 
     ######################################
     # Loop over ra/dec and xsize,ysize
@@ -198,30 +233,30 @@ def fitscutter(filename, ra, dec, xsize=1.0, ysize=1.0, units='arcmin',prefix='D
         if y1<0: y1=0
         if x1<0: x1=0
 
-        # Create a canvas
-        im_section_sci = numpy.zeros((naxis1,naxis2))
-        im_section_wft = numpy.zeros((naxis1,naxis2))
-        
-        # Read in the image section we want for SCI/WGT
-        im_section_sci = ifits[sci_hdu][y1:y2,x1:x2]
-        im_section_wgt = ifits[wgt_hdu][y1:y2,x1:x2]
-        # Update the WCS in the headers and make a copy
-        h_section_sci = update_wcs_matrix(h_sci,x0,y0,naxis1,naxis2)
-        h_section_wgt = update_wcs_matrix(h_wgt,x0,y0,naxis1,naxis2)
+        im_section = OrderedDict()
+        h_section  = OrderedDict()
+        for EXTNAME in extnames:
+            # The hdunum for that extname
+            HDUNUM = hdunum[EXTNAME]
+            # Create a canvas
+            im_section[EXTNAME] = numpy.zeros((naxis1,naxis2))
+            # Read in the image section we want for SCI/WGT
+            im_section[EXTNAME] = ifits[HDUNUM][y1:y2,x1:x2]
+            # Update the WCS in the headers and make a copy
+            h_section[EXTNAME] = update_wcs_matrix(header[EXTNAME],x0,y0,naxis1,naxis2)
 
-        # Construct the name of the Thumbmail
-        filter = h_sci['FILTER'].strip()
-        outname = get_thumbFitsName(ra[k],dec[k],filter,prefix=prefix,outdir=outdir)
+        # Construct the name of the Thumbmail using BAND/FILTER/prefix/etc
+        outname = get_thumbFitsName(ra[k],dec[k],band,prefix=prefix,outdir=outdir)
 
         # Write out the file
         ofits = fitsio.FITS(outname,'rw',clobber=True)
-        ofits.write(im_section_sci,header=h_section_sci)
-        ofits.write(im_section_wgt,header=h_section_wgt)
+        for EXTNAME in extnames:
+            ofits.write(im_section[EXTNAME],extname=EXTNAME,header=h_section[EXTNAME])
+            
         ofits.close()
         if verb: SOUT.write("# Wrote: %s\n" % outname)
       
     return
-
 
 def get_stiff_parameter_set(tiffname,**kwargs):
     """
@@ -325,18 +360,19 @@ if __name__ == "__main__":
 
     # Example of inputs:
     # ra,dec can be list or scalars
+    filename = 'DES0002+0001_g.fits.fz'
     ra  = [0.71925223,   0.61667249, 0.615752,    0.31218133]
     dec = [0.0081421517, 0.13929069, 0.070078051, 0.08508208]
-    #xsize = [3]*len(ra)
-    #ysize = [5]*len(ra)
+    tilename = 'DES0002+0001'
 
-    #xsize = [3,2]
-    #ysize = [5,2]
-    
-    
-    filename = 'DES0002+0001_g.fits.fz'
+    filename = 'DES0203-0707_r2577p01_g.fits.fz'
+    ra  = [30.928739,30.818148,30.830120,30.982164,31.086377]
+    dec = [-7.286070,-7.285457,-7.285527,-7.285317,-7.284755]
+
+    xsize = [3]*len(ra)
+    ysize = [5]*len(ra)
+
     t0 = time.time()
-    cutout(filename, ra, dec, xsize=xsize, ysize=ysize, units='arcmin',prefix='DES')
-    #cutout(filename, ra, dec, xsize=1, ysize=1, units='arcmin',prefix='DES')
+    fitscutter(filename, ra, dec, xsize=xsize, ysize=ysize, units='arcmin',prefix='DES',tilename=tilename,verb=True)
     SOUT.write("Done: %s\n" % elapsed_time(t0))
 

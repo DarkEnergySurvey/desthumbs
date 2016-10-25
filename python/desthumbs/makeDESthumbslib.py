@@ -142,16 +142,25 @@ def run(args):
     kwargs = {'host': host, 'port': port, 'service_name': name}
     dsn = cx_Oracle.makedsn(**kwargs)
     dbh = cx_Oracle.connect(args.user, args.password, dsn=dsn)
+    if args.tag[0:4] == 'SVA1' or args.tag[0:4] == 'Y1A1':
+        schema = 'des_admin'
+    else:
+        schema = 'prod'
 
     # Get archive_root
-    archive_root = desthumbs.get_archive_root(dbh,archive_name='desardata',verb=False)
+    archive_root = desthumbs.get_archive_root(dbh,schema=schema,verb=True)
+
+    # Make sure that outdir exists
+    if not os.path.exists(args.outdir):
+         if args.verb: sout.write("# Creating: %s\n" % args.outdir)
+         os.makedirs(args.outdir)
 
     # Find all of the tilenames, indices grouped per tile
     if args.verb: sout.write("# Finding tilename for each input position\n")
     if searchbyID:
-         tilenames,ra,dec,indices, tilenames_matched = desthumbs.find_tilenames_id(coadd_id,args.coaddtable,dbh)
+         tilenames,ra,dec,indices, tilenames_matched = desthumbs.find_tilenames_id(coadd_id,args.coaddtable,dbh,schema=schema)
     else:
-         tilenames,indices, tilenames_matched = desthumbs.find_tilenames_radec(ra,dec,dbh)
+         tilenames,indices, tilenames_matched = desthumbs.find_tilenames_radec(ra,dec,dbh,schema=schema)
 
     # Add them back to pandas dataframe and write a file
     df['TILENAME'] = tilenames_matched
@@ -164,10 +173,6 @@ def run(args):
     # Make sure that all found tilenames *are* in the tag (aka data exists for them)
     #tilenames_intag = desthumbs.get_tilenames_in_tag(dbh,args.tag)
 
-    # Make sure that outdir exists
-    if not os.path.exists(args.outdir):
-         if args.verb: sout.write("# Creating: %s\n" % args.outdir)
-         os.makedirs(args.outdir)
 
     # Loop over all of the tilenames
     t0 = time.time()
@@ -181,17 +186,25 @@ def run(args):
         sout.write("# ----------------------------------------------------\n")
 
         # 1. Get all of the filenames for a given tilename
-        filenames = desthumbs.get_coaddfiles_tilename_bytag(tilename,dbh,args.tag,bands=args.bands)
+        filenames = desthumbs.get_coaddfiles_tilename_bytag(tilename,dbh,args.tag,bands=args.bands,schema=schema)
         if filenames is False:
              sout.write("# Skipping: %s -- not in TAG:%s \n" % (tilename,args.tag))
              continue
         indx      = indices[tilename]
         avail_bands = filenames.BAND
-
+        
         # 2. Loop over all of the filename -- We could use multi-processing
         p={}
-        for f in filenames.PATH:
-            filename = os.path.join(archive_root,f)
+        for k in range(len(filenames)):
+
+            # Rebuild the full filename with COMPRESSION if present
+            if 'COMPRESSION' in filenames.dtype.names:
+                filename = os.path.join(archive_root,filenames.PATH[k],filenames.FILENAME[k])+filenames.COMPRESSION[k]
+            else:
+                filename = os.path.join(archive_root,filenames.PATH[k])
+
+
+            print filename
             ar = (filename, ra[indx], dec[indx])
             kw = {'xsize':xsize[indx], 'ysize':ysize[indx],
                   'units':'arcmin', 'prefix':args.prefix, 'outdir':args.outdir,
