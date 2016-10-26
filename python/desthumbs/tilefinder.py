@@ -177,18 +177,19 @@ def get_coaddfiles_tilename_bytag(tilename,dbh,tag,bands='all',schema='prod'):
         sbands = "'" + "','".join(bands) + "'" # trick to format
         rec = despyastro.query2rec(QUERY_COADDFILES_BANDS[schema].format(TILENAME=tilename,TAG=tag,BANDS=sbands),dbh)
 
-    if rec is False:
-        SOUT.write("# WARNING : Found 0 files for tilename: %s\n" %  tilename)
-        return rec
-
-    # Here we fix 'COMPRESSION from None --> '' if present
-    if 'COMPRESSION' in rec.dtype.names:
-        compression = [ '' if c is None else c for c in rec['COMPRESSION'] ]
-        rec['COMPRESSION'] = numpy.array(compression)
-        
     # Return a record array with the query
     return rec 
 
+
+def fix_compression(rec):
+
+    # Here we fix 'COMPRESSION from None --> '' if present
+    if rec is False:
+        pass
+    elif 'COMPRESSION' in rec.dtype.names:
+        compression = [ '' if c is None else c for c in rec['COMPRESSION'] ]
+        rec['COMPRESSION'] = numpy.array(compression)
+    return rec
 
 def get_coaddfiles_tilename_byid(tilename,id,dbh,coaddtable,bands='all'):
 

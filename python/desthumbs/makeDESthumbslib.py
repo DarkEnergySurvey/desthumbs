@@ -194,8 +194,11 @@ def run(args):
         # 1. Get all of the filenames for a given tilename
         filenames = desthumbs.get_coaddfiles_tilename_bytag(tilename,dbh,args.tag,bands=args.bands,schema=schema)
         if filenames is False:
-             sout.write("# Skipping: %s -- not in TAG:%s \n" % (tilename,args.tag))
-             continue
+            sout.write("# Skipping: %s -- not in TAG:%s \n" % (tilename,args.tag))
+            continue
+        else:
+            filenames = desthumbs.fix_compression(filenames)
+            
         indx      = indices[tilename]
         avail_bands = filenames.BAND
 
