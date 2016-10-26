@@ -198,7 +198,7 @@ def run(args):
              continue
         indx      = indices[tilename]
         avail_bands = filenames.BAND
-        
+
         # 2. Loop over all of the filename -- We could use multi-processing
         p={}
         for k in range(len(filenames)):
