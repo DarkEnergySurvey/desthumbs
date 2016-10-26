@@ -8,7 +8,6 @@ import multiprocessing as mp
 
 import desthumbs 
 import cx_Oracle
-from despydb import desdbi
 
 XSIZE_default = 1.0
 YSIZE_default = 1.0
