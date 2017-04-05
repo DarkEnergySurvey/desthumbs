@@ -6,7 +6,7 @@ bin_files = glob.glob("bin/*.py")
 
 # The main call
 setup(name='desthumbs',
-      version ='0.2.0',
+      version ='0.2.1',
       license = "GPL",
       description = "A python module to make FITS files cutouts/thumbnails for DES",
       author = "Felipe Menanteau",
