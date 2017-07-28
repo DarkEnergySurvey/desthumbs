@@ -84,17 +84,28 @@ def find_tilenames_id(id,tablename,dbh,schema='prod'):
 
 def find_tilename_radec(ra,dec,dbh,schema='prod'):
 
+    if ra<0:
+        exit("ERROR: Please provide RA>0 and RA<360")
+
     QUERY_TILENAME_RADEC = {}
+    # We match old table COADDTILE with COADDTILE_GEOM to match CROSSRA0 column
     QUERY_TILENAME_RADEC['des_admin'] = """
-    select TILENAME from des_admin.COADDTILE
-           where (({RA} BETWEEN URALL and URAUR) AND ({DEC} BETWEEN UDECLL and UDECUR))
+    select c.TILENAME from des_admin.COADDTILE c, prod.COADDTILE_GEOM g 
+           where c.TILENAME=g.TILENAME AND 
+                 (g.CROSSRA0='N' AND ({RA} BETWEEN URALL and URAUR) AND ({DEC} BETWEEN UDECLL and UDECUR)) OR
+                 (g.CROSSRA0='Y' AND ({RA180} BETWEEN URALL-360 and URAUR-360) AND ({DEC} BETWEEN UDECLL and UDECUR)) 
     """
-    # Need to confirm it works for CROSSRA0=Y
+    # Special case for CROSSRA0
     QUERY_TILENAME_RADEC['prod']= """
     select TILENAME from prod.COADDTILE_GEOM 
-           where (({RA} BETWEEN RACMIN and RACMAX) AND ({DEC} BETWEEN DECCMIN and DECCMAX))
+           where (CROSSRA0='N' AND ({RA} BETWEEN RACMIN and RACMAX) AND ({DEC} BETWEEN DECCMIN and DECCMAX)) OR
+                 (CROSSRA0='Y' AND ({RA180} BETWEEN RACMIN-360 and RACMAX) AND ({DEC} BETWEEN DECCMIN and DECCMAX))
     """
-    tilenames_dict = despyastro.query2dict_of_columns(QUERY_TILENAME_RADEC[schema].format(RA=ra,DEC=dec),dbh,array=False)
+    if ra > 180:
+        ra180 = 360-ra
+    else:
+        ra180 = ra
+    tilenames_dict = despyastro.query2dict_of_columns(QUERY_TILENAME_RADEC[schema].format(RA=ra,DEC=dec,RA180=ra180),dbh,array=False)
     
     if len(tilenames_dict)<1:
         SOUT.write("# WARNING: No tile found at ra:%s, dec:%s\n" % (ra,dec))
