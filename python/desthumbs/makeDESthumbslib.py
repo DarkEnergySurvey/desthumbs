@@ -143,7 +143,7 @@ def run(args):
         section = "db-desoper"
         dbh = desdbi.DesDbi(section=section)
     except:
-        host = 'leovip148.ncsa.uiuc.edu'
+        host = 'desdb.ncsa.illinois.edu'
         port = '1521'
         name = 'desoper'
         kwargs = {'host': host, 'port': port, 'service_name': name}
