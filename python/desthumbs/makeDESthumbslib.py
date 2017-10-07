@@ -70,6 +70,7 @@ def cmdline():
      sout.write("# Will run:\n")
      sout.write("# %s \n" % parser.prog)
      for key in vars(args):
+         if key == 'password': continue
          sout.write("# \t--%-10s\t%s\n" % (key,vars(args)[key]))
      return args
 
