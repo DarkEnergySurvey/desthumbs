@@ -242,6 +242,9 @@ def fitscutter(filename, ra, dec, xsize=1.0, ysize=1.0, units='arcmin',prefix='D
             im_section[EXTNAME] = numpy.zeros((naxis1,naxis2))
             # Read in the image section we want for SCI/WGT
             im_section[EXTNAME] = ifits[HDUNUM][y1:y2,x1:x2]
+            # Correct NAXIS1 and NAXIS2
+            naxis1 = numpy.shape(im_section[EXTNAME])[1]
+            naxis2 = numpy.shape(im_section[EXTNAME])[0]
             # Update the WCS in the headers and make a copy
             h_section[EXTNAME] = update_wcs_matrix(header[EXTNAME],x0,y0,naxis1,naxis2)
 
