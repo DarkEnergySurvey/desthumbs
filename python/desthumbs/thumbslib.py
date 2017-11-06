@@ -219,7 +219,8 @@ def fitscutter(filename, ra, dec, xsize=1.0, ysize=1.0, units='arcmin',prefix='D
 
         # Define the geometry of the thumbnail
         x0,y0 = wcs.sky2image(ra[k],dec[k])
-        yL,xL = ifits[0].get_dims()
+        yL = 10000
+        xL = 10000
         x0 = round(x0)
         y0 = round(y0)
         dx = int(0.5*xsize[k]*scale/pixelscale)
