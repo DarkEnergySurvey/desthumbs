@@ -259,7 +259,7 @@ def fitscutter(filename, ra, dec, xsize=1.0, ysize=1.0, units='arcmin',prefix='D
             # Create a canvas
             im_section[EXTNAME] = numpy.zeros((naxis1,naxis2))
             # Read in the image section we want for SCI/WGT
-            im_section[EXTNAME] = ifits[HDUNUM][y1:y2,x1:x2]
+            im_section[EXTNAME] = ifits[HDUNUM][int(y1):int(y2),int(x1):int(x2)]
             # Correct NAXIS1 and NAXIS2
             naxis1 = numpy.shape(im_section[EXTNAME])[1]
             naxis2 = numpy.shape(im_section[EXTNAME])[0]
