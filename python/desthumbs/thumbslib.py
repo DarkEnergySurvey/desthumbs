@@ -55,7 +55,7 @@ def get_coadd_hdu_extensions_byfilename(filename):
         raise NameError("ERROR: No .fz or .fits files found")
     return sci_hdu, wgt_hdu
 
-def update_wcs_matrix(header,x0,y0,naxis1,naxis2):
+def update_wcs_matrix(header,x0,y0,naxis1,naxis2,ra,dec):
 
     """
     Update the wcs header object with the right CRPIX[1,2] CRVAL[1,2] for a given subsection
@@ -75,6 +75,8 @@ def update_wcs_matrix(header,x0,y0,naxis1,naxis2):
     h['CRVAL2'] = CRVAL2
     h['CRPIX1'] = CRPIX1
     h['CRPIX2'] = CRPIX2
+    h['RA_CUTOUT'] = ra
+    h['DEC_CUTOUT'] = dec
     return h
 
 def check_inputs(ra,dec,xsize,ysize):
@@ -264,7 +266,7 @@ def fitscutter(filename, ra, dec, xsize=1.0, ysize=1.0, units='arcmin',prefix='D
             naxis1 = numpy.shape(im_section[EXTNAME])[1]
             naxis2 = numpy.shape(im_section[EXTNAME])[0]
             # Update the WCS in the headers and make a copy
-            h_section[EXTNAME] = update_wcs_matrix(header[EXTNAME],x0,y0,naxis1,naxis2)
+            h_section[EXTNAME] = update_wcs_matrix(header[EXTNAME],x0,y0,naxis1,naxis2,ra[k],dec[k])
 
         # Construct the name of the Thumbmail using BAND/FILTER/prefix/etc
         outname = get_thumbFitsName(ra[k],dec[k],band,prefix=prefix,outdir=outdir)
