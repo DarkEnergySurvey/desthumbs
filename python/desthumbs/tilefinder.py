@@ -18,6 +18,10 @@ def get_archive_root(dbh,schema='prod',verb=False):
     name['des_admin'] = 'desardata'
     name['prod']   = 'desar2home'
 
+    if schema == 'dr1':
+        archive_root = '/des004/despublic/dr1_tiles/'
+        return archive_root
+        
     QUERY_ARCHIVE_ROOT['des_admin'] = "select archive_root from des_admin.archive_sites where location_name='%s'"  % name['des_admin']
     QUERY_ARCHIVE_ROOT['prod'] = "select root from prod.ops_archive where name='%s'" % name['prod'] 
     if verb:
@@ -101,6 +105,14 @@ def find_tilename_radec(ra,dec,dbh,schema='prod'):
            where (CROSSRA0='N' AND ({RA} BETWEEN RACMIN and RACMAX) AND ({DEC} BETWEEN DECCMIN and DECCMAX)) OR
                  (CROSSRA0='Y' AND ({RA180} BETWEEN RACMIN-360 and RACMAX) AND ({DEC} BETWEEN DECCMIN and DECCMAX))
     """
+
+    # Case for DR/DR1
+    QUERY_TILENAME_RADEC['dr1']= """
+    select TILENAME from des_admin.DR1_TILE_INFO 
+           where (CROSSRA0='N' AND ({RA} BETWEEN RACMIN and RACMAX) AND ({DEC} BETWEEN DECCMIN and DECCMAX)) OR
+                 (CROSSRA0='Y' AND ({RA180} BETWEEN RACMIN-360 and RACMAX) AND ({DEC} BETWEEN DECCMIN and DECCMAX))
+    """
+
     if ra > 180:
         ra180 = 360-ra
     else:
@@ -182,15 +194,44 @@ def get_coaddfiles_tilename_bytag(tilename,dbh,tag,bands='all',schema='prod'):
               f.FILENAME=c.FILENAME and
               c.TILENAME='{TILENAME}'"""
 
+    QUERY_COADDFILES_ALL['dr1'] = """
+    select FITS_IMAGE_DET,
+           FITS_IMAGE_G,
+           FITS_IMAGE_R,
+           FITS_IMAGE_I,
+           FITS_IMAGE_Z,
+           FITS_IMAGE_Y
+       from des_admin.DR1_TILE_INFO
+       where TILENAME='{TILENAME}'
+       """
+
+    QUERY_COADDFILES_BANDS['dr1'] = """
+    select {FITS_IMAGES}
+       from des_admin.DR1_TILE_INFO
+       where TILENAME='{TILENAME}'
+       """
+
     if bands == 'all':
+        print QUERY_COADDFILES_ALL[schema].format(TILENAME=tilename,TAG=tag)
         rec = despyastro.query2rec(QUERY_COADDFILES_ALL[schema].format(TILENAME=tilename,TAG=tag),dbh)
     else:
         sbands = "'" + "','".join(bands) + "'" # trick to format
-        rec = despyastro.query2rec(QUERY_COADDFILES_BANDS[schema].format(TILENAME=tilename,TAG=tag,BANDS=sbands),dbh)
+        fits_images = ", ".join(["FITS_IMAGE_{}".format(band.upper()) for band in bands]) 
+        print QUERY_COADDFILES_BANDS[schema].format(TILENAME=tilename,TAG=tag,BANDS=sbands,FITS_IMAGES=fits_images)
+        rec = despyastro.query2rec(QUERY_COADDFILES_BANDS[schema].format(TILENAME=tilename,TAG=tag,BANDS=sbands,FITS_IMAGES=fits_images),dbh)
 
     # Return a record array with the query
     return rec 
 
+def get_avail_bands_dr1(filenames):
+    ''' Get the available bands for the DR1 query '''
+
+    avail_bands = []
+    for name in filenames.dtype.names:
+        if filenames[name] is not None:
+            avail_bands.append(name[-1].lower())
+
+    return avail_bands
 
 def fix_compression(rec):
 

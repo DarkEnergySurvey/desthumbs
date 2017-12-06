@@ -16,18 +16,6 @@ except:
 XSIZE_default = 1.0
 YSIZE_default = 1.0
 
-
-
-def elapsed_time(t1,verbose=False):
-    """ Formating of the elapsed time """
-    import time
-    t2    = time.time()
-    stime = "%dm %2.2fs" % ( int( (t2-t1)/60.), (t2-t1) - 60*int((t2-t1)/60.))
-    if verbose:
-        print "# Elapsed time: %s" % stime
-    return stime
-
-
 def cmdline():
      import argparse
      parser = argparse.ArgumentParser(description="Retrieves FITS images within DES given the file and other parameters")
@@ -56,10 +44,13 @@ def cmdline():
                          help="Turn on verbose mode [default=False]")
      parser.add_argument("--outdir", type=str, action='store', default=os.getcwd(),
                          help="Output directory location [default='./']")
+     parser.add_argument("--db_section", type=str, action='store',default='db-desoper',
+                         help="Database section to connect to")
      parser.add_argument("--user", type=str, action='store',help="Username")
      parser.add_argument("--password", type=str, action='store', help="password")
      parser.add_argument("--logfile", type=str, action='store', default=None,
                          help="Output logfile")
+
      args = parser.parse_args()
 
      if args.logfile:
@@ -141,7 +132,7 @@ def run(args):
     
     # Get DB handle
     try:
-        section = "db-desoper"
+        section = args.db_section
         dbh = desdbi.DesDbi(section=section)
     except:
         host = 'desdb.ncsa.illinois.edu'
@@ -154,9 +145,14 @@ def run(args):
     # Define the schema
     if args.tag[0:4] == 'SVA1' or args.tag[0:4] == 'Y1A1':
         schema = 'des_admin'
+    elif args.tag[0:3] == 'DR1':
+        schema = 'dr1'
+    elif args.tag[0:3] == 'DR2':
+        schema = 'dr2'
     else:
         schema = 'prod'
 
+    print "SCHEMA is",schema
     # Get archive_root
     archive_root = desthumbs.get_archive_root(dbh,schema=schema,verb=True)
 
@@ -197,25 +193,38 @@ def run(args):
 
         # 1. Get all of the filenames for a given tilename
         filenames = desthumbs.get_coaddfiles_tilename_bytag(tilename,dbh,args.tag,bands=args.bands,schema=schema)
+
+        # ------------------
+        # IMPORTANT NOTE
+        # For SV1/Y2A1/Y3A1 we get one entry per band in the array,
+        # but for DR1, we get all entries independently, so the shape of the record arrays are different
+        # ------------------
+
         if filenames is False:
             sout.write("# Skipping: %s -- not in TAG:%s \n" % (tilename,args.tag))
             continue
+        # Fix compression for SV1/Y2A1/Y3A1 releases
         else:
             filenames = desthumbs.fix_compression(filenames)
             
         indx      = indices[tilename]
-        avail_bands = filenames.BAND
+        if schema == 'dr1':
+          avail_bands = desthumbs.get_avail_bands_dr1(filenames)
+        else:
+          avail_bands = filenames.BAND
 
         # 2. Loop over all of the filename -- We could use multi-processing
         p={}
-        for k in range(len(filenames)):
+        n_filenames = len(avail_bands) 
+        for k in range(n_filenames):
 
             # Rebuild the full filename with COMPRESSION if present
             if 'COMPRESSION' in filenames.dtype.names:
                 filename = os.path.join(archive_root,filenames.PATH[k],filenames.FILENAME[k])+filenames.COMPRESSION[k]
+            elif schema == 'dr1':
+                filename = filenames[0][k].replace('/easyweb/files/dr1/','/des004/despublic/dr1_tiles/')
             else:
                 filename = os.path.join(archive_root,filenames.PATH[k])
-
 
             print filename
             ar = (filename, ra[indx], dec[indx])
@@ -244,7 +253,7 @@ def run(args):
                                   verb=args.verb,
                                   stiff_parameters={'NTHREADS':NP})
 
-        if args.verb: sout.write("# Time %s: %s\n" % (tilename,elapsed_time(t1)))
+        if args.verb: sout.write("# Time %s: %s\n" % (tilename,desthumbs.elapsed_time(t1)))
 
-    sout.write("\n*** Grand Total time:%s ***\n" % elapsed_time(t0))
+    sout.write("\n*** Grand Total time:%s ***\n" % desthumbs.elapsed_time(t0))
     return 
