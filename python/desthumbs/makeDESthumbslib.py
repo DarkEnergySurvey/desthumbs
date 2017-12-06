@@ -132,15 +132,20 @@ def run(args):
     
     # Get DB handle
     try:
-        section = args.db_section
-        dbh = desdbi.DesDbi(section=section)
+      dbh = desdbi.DesDbi(section=args.db_section)
     except:
+      if args.db_section == 'desoper' or args.db_section == 'db-desoper':
         host = 'desdb.ncsa.illinois.edu'
         port = '1521'
         name = 'desoper'
-        kwargs = {'host': host, 'port': port, 'service_name': name}
-        dsn = cx_Oracle.makedsn(**kwargs)
-        dbh = cx_Oracle.connect(args.user, args.password, dsn=dsn)
+      elif args.db_section == 'oldsci' or args.db_section == 'db-oldsci':
+        host = 'desdb-dr.ncsa.illinois.edu'
+        port = '1521'
+        name = 'desdr'
+
+      kwargs = {'host': host, 'port': port, 'service_name': name}
+      dsn = cx_Oracle.makedsn(**kwargs)
+      dbh = cx_Oracle.connect(args.user, args.password, dsn=dsn)
 
     # Define the schema
     if args.tag[0:4] == 'SVA1' or args.tag[0:4] == 'Y1A1':
