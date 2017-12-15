@@ -227,7 +227,8 @@ def run(args):
             if 'COMPRESSION' in filenames.dtype.names:
                 filename = os.path.join(archive_root,filenames.PATH[k],filenames.FILENAME[k])+filenames.COMPRESSION[k]
             elif schema == 'dr1':
-                filename = filenames[0][k].replace('/easyweb/files/dr1/','/des004/despublic/dr1_tiles/')
+                #filename = filenames[0][k].replace('/easyweb/files/dr1/','/des004/despublic/dr1_tiles/')
+                filename = filenames[0][k].replace('http://desdr-server.ncsa.illinois.edu','/des004')
             else:
                 filename = os.path.join(archive_root,filenames.PATH[k])
 
