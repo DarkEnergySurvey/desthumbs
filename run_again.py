@@ -181,36 +181,37 @@ def get_coaddfiles_tilename_bytag(tilename, dbh, tag, bands='all', schema='prod'
     QUERY_COADDFILES_ALL = {}
 
     QUERY_COADDFILES_BANDS['des_admin'] = """
-    select distinct f.path, TILENAME, BAND from des_admin.COADD c, des_admin.filepath_desar f
-             where
-             c.FILETYPE='coadd' and
-             c.BAND in ({BANDS}) and
-             c.TILENAME='{TILENAME}' and
-             f.ID=c.ID and
-             c.RUN in (select RUN from des_admin.RUNTAG where TAG='{TAG}')"""
-
-    QUERY_COADDFILES_ALL['des_admin'] = """
-    select distinct f.path, TILENAME, BAND from des_admin.COADD c, des_admin.filepath_desar f
-             where
-             c.FILETYPE='coadd' and
-             c.BAND IS NOT NULL and
-             c.TILENAME='{TILENAME}' and
-             f.ID=c.ID and
-             c.RUN in (select RUN from des_admin.RUNTAG where TAG='{TAG}')"""
-
-    QUERY_COADDFILES_BANDS['prod'] = """
-    select c.FILENAME, c.TILENAME, c.BAND, f.PATH, f.COMPRESSION from prod.COADD c, prod.PROCTAG, prod.FILE_ARCHIVE_INFO f
+    select c.FILENAME, c.TILENAME, c.BAND, f.PATH, f.COMPRESSION
+     from des_admin.{TAG}_COADD c, des_admin.{TAG}_FILE_ARCHIVE_INFO f
             where
               c.FILETYPE='coadd' and
               c.BAND in ({BANDS}) and
-              prod.PROCTAG.TAG='{TAG}' and
+              f.FILENAME=c.FILENAME and
+              c.TILENAME='{TILENAME}'"""
+
+    QUERY_COADDFILES_ALL['des_admin'] = """
+    select c.FILENAME, c.TILENAME, c.BAND, f.PATH, f.COMPRESSION
+     from des_admin.{TAG}_COADD c, des_admin.{TAG}_FILE_ARCHIVE_INFO f
+            where
+              c.FILETYPE='coadd' and
+              f.FILENAME=c.FILENAME and
+              c.TILENAME='{TILENAME}'"""
+
+    QUERY_COADDFILES_BANDS['prod'] = """
+    select c.FILENAME, c.TILENAME, c.BAND, f.PATH, f.COMPRESSION
+     from prod.COADD c, prod.PROCTAG, prod.FILE_ARCHIVE_INFO f
+            where
+              c.FILETYPE='coadd' and
+              c.BAND in ({BANDS}) and
+              prod.PROCTAG.TAG='{TAG}_COADD' and
               c.PFW_ATTEMPT_ID=PROCTAG.PFW_ATTEMPT_ID and
               f.FILENAME=c.FILENAME and
               c.TILENAME='{TILENAME}'"""
 
     QUERY_COADDFILES_ALL['prod'] = """
-    select c.FILENAME, c.TILENAME, c.BAND, f.PATH, f.COMPRESSION from prod.COADD c, prod.PROCTAG, prod.FILE_ARCHIVE_INFO f
-            where prod.PROCTAG.TAG='{TAG}' and
+    select c.FILENAME, c.TILENAME, c.BAND, f.PATH, f.COMPRESSION
+     from prod.COADD c, prod.PROCTAG, prod.FILE_ARCHIVE_INFO f
+            where prod.PROCTAG.TAG='{TAG}_COADD' and
               c.FILETYPE='coadd' and
               c.PFW_ATTEMPT_ID=PROCTAG.PFW_ATTEMPT_ID and
               f.FILENAME=c.FILENAME and
@@ -264,8 +265,12 @@ if __name__ == "__main__":
     db_section = 'db-desoper'
     schema = 'prod'
 
-    # db_section = 'db-dessci'
-    # schema = 'des_admin'
+    #db_section = 'db-dessci'
+    #schema = 'des_admin'
+
+    tag = "Y6A2"
+    bands = 'all'
+    #bands = ['g', 'r', 'z']
 
     config_file = os.path.join(os.environ['HOME'], 'dbconfig.ini')
     # Get the connection credentials and information
@@ -286,10 +291,6 @@ if __name__ == "__main__":
     matched_list = os.path.join(".", 'matched_'+os.path.basename(inputList))
     df.to_csv(matched_list, index=False)
     sout.write("# Wrote matched tilenames list to: %s\n" % matched_list)
-
-    tag = "Y6A2_COADD"
-    bands = 'all'
-    bands = ['g', 'r', 'z']
 
     # Loop over all of the tilenames
     t0 = time.time()
@@ -323,4 +324,5 @@ if __name__ == "__main__":
                 filename = os.path.join(archive_root, filenames.PATH[k], filenames.FILENAME[k])+filenames.COMPRESSION[k]
             else:
                 filename = os.path.join(archive_root, filenames.PATH[k], filenames.FILENAME[k])
+            ar = (filename, ra[indx], dec[indx])
             print(filename)
