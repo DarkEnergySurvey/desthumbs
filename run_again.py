@@ -175,7 +175,7 @@ def find_tilenames_radec(ra, dec, dbh, schema='prod'):
     return tilenames, indices, tilenames_matched
 
 
-def get_coaddfiles_tilename_bytag(tilename, dbh, tag, bands='all', schema='prod'):
+def get_coaddfiles_tilename_bytag_old(tilename, dbh, tag, bands='all', schema='prod'):
 
     QUERY_COADDFILES_BANDS = {}
     QUERY_COADDFILES_ALL = {}
@@ -229,6 +229,27 @@ def get_coaddfiles_tilename_bytag(tilename, dbh, tag, bands='all', schema='prod'
     return rec
 
 
+def get_coaddfiles_tilename_bytag(tilename, dbh, tag, bands='all'):
+
+    if bands == 'all':
+        and_BANDS = ''
+    else:
+        sbands = "'" + "','".join(bands) + "'"  # trick to format
+        and_BANDS = "BAND in ({BANDS}) and".format(BANDS=sbands)
+
+    QUERY_COADDFILES = """
+    select FILENAME, TILENAME, BAND, PATH, COMPRESSION
+     from felipe.{TAG}_COADD_FILEPATH
+            where
+              {and_BANDS} TILENAME='{TILENAME}'"""
+
+    query = QUERY_COADDFILES.format(TILENAME=tilename, TAG=tag, and_BANDS=and_BANDS)
+    print(query)
+    rec = query2rec(query, dbh)
+    # Return a record array with the query
+    return rec
+
+
 def get_base_names(tilenames, ra, dec, prefix='DES'):
     names = []
     for k in range(len(ra)):
@@ -244,6 +265,16 @@ def get_base_names(tilenames, ra, dec, prefix='DES'):
 if __name__ == "__main__":
 
     sout = sys.stdout
+
+    # db_section = 'db-desoper'
+    # schema = 'prod'
+
+    db_section = 'db-dessci'
+    schema = 'des_admin'
+
+    tag = "Y6A2"
+    bands = 'all'
+    # bands = ['g', 'r', 'z']
 
     # Read in CSV file with pandas
     inputList = 'bin/example_input_radec.csv'
@@ -261,16 +292,6 @@ if __name__ == "__main__":
 
     # Check the xsize and ysizes
     # xsize, ysize = check_xysize(df, args, nobj)
-
-    db_section = 'db-desoper'
-    schema = 'prod'
-
-    #db_section = 'db-dessci'
-    #schema = 'des_admin'
-
-    tag = "Y6A2"
-    bands = 'all'
-    #bands = ['g', 'r', 'z']
 
     config_file = os.path.join(os.environ['HOME'], 'dbconfig.ini')
     # Get the connection credentials and information
@@ -304,7 +325,7 @@ if __name__ == "__main__":
         sout.write("# ----------------------------------------------------\n")
 
         # 1. Get all of the filenames for a given tilename
-        filenames = get_coaddfiles_tilename_bytag(tilename, dbh, tag, bands=bands, schema=schema)
+        filenames = get_coaddfiles_tilename_bytag(tilename, dbh, tag, bands=bands)
         # print(filenames)
         if filenames is False:
             sout.write(f"# Skipping: {tilename} -- not in TAG: {tag} \n")
