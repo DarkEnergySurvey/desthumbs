@@ -238,9 +238,10 @@ def get_coaddfiles_tilename_bytag(tilename, dbh, tag, bands='all'):
         and_BANDS = "BAND in ({BANDS}) and".format(BANDS=sbands)
 
     QUERY_COADDFILES = """
-    select FILENAME, TILENAME, BAND, PATH, COMPRESSION
+    select FILENAME, TILENAME, BAND, FILETYPE, PATH, COMPRESSION
      from felipe.{TAG}_COADD_FILEPATH
             where
+              FILETYPE='coadd' and
               {and_BANDS} TILENAME='{TILENAME}'"""
 
     query = QUERY_COADDFILES.format(TILENAME=tilename, TAG=tag, and_BANDS=and_BANDS)
