@@ -34,8 +34,11 @@ select i.FILENAME, i.BAND, i.FILETYPE, i.EXPTIME, i.NITE, i.EXPNUM, e.DATE_OBS, 
         and i.BAND='r'
         and i.FILETYPE='red_immask';
 
--- example of search near ra, dec
+-- example test search near ra, dec for finalcut
+SET TIMING ON;
 select i.FILENAME, i.BAND, i.EXPTIME, i.NITE, i.EXPNUM, i.DATE_OBS, i.MJD_OBS from felipe.Y6A2_FINALCUT_FILEPATH i
   where ((i.CROSSRA0='N' AND (0.29782658 BETWEEN i.RACMIN and i.RACMAX) AND (0.029086056 BETWEEN i.DECCMIN and i.DECCMAX)) OR
   (i.CROSSRA0='Y' AND (0.29782658 BETWEEN i.RACMIN-360 and i.RACMAX) AND (0.029086056 BETWEEN i.DECCMIN and i.DECCMAX)))
-  and i.BAND='r';
+  and i.DATE_OBS between '2013-10-25T00:05:49' and '2014-12-25T00:05:49'
+  and i.BAND='r' order by i.EXPNUM;
+SET TIMING OFF;
