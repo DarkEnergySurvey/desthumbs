@@ -6,22 +6,37 @@ F. Menanteau, NCSA July 2015
 """
 
 import fitsio
-import os,sys
-from despyastro import astrometry
+import os
+import sys
+import astrometry
+# from despyastro import astrometry
 from despyastro import wcsutil
 import time
 import numpy
 import subprocess
 from collections import OrderedDict
 
-def elapsed_time(t1,verbose=False):
-    """ Formating of the elapsed time """
-    import time
-    t2    = time.time()
-    stime = "%dm %2.2fs" % ( int( (t2-t1)/60.), (t2-t1) - 60*int((t2-t1)/60.))
-    if verbose:
-        print "# Elapsed time: %s" % stime
+
+def elapsed_time(t1, verb=False):
+    """
+    Returns the time between t1 and the current time now
+    I can can also print the formatted elapsed time.
+    ----------
+    t1: float
+        The initial time (in seconds)
+    verb: bool, optional
+        Optionally print the formatted elapsed time
+    returns
+    -------
+    stime: float
+        The elapsed time in seconds since t1
+    """
+    t2 = time.time()
+    stime = "%dm %2.2fs" % (int((t2-t1)/60.), (t2-t1) - 60*int((t2-t1)/60.))
+    if verb:
+        print("Elapsed time: {}".format(stime))
     return stime
+
 
 SOUT = sys.stdout
 
@@ -138,15 +153,15 @@ def get_thumbBaseName(ra,dec,prefix='DES'):
 
 
 def get_headers_hdus(filename):
-    
+
     header = OrderedDict()
-    hdu = OrderedDict()   
+    hdu = OrderedDict()
 
     # Case 1 -- for well-defined fitsfiles with EXTNAME
     with fitsio.FITS(filename) as fits:
         for k in xrange(len(fits)):
             h = fits[k].read_header()
-            
+
             # Make sure that we can get the EXTNAME
             if not h.get('EXTNAME'):
                 continue
@@ -166,7 +181,7 @@ def get_headers_hdus(filename):
         hdu['WGT'] = wgt_hdu
 
     return header,hdu
-        
+
 
 def fitscutter(filename, ra, dec, xsize=1.0, ysize=1.0, units='arcmin',prefix='DES',outdir=os.getcwd(),tilename=None,verb=False):
 
@@ -242,7 +257,7 @@ def fitscutter(filename, ra, dec, xsize=1.0, ysize=1.0, units='arcmin',prefix='D
             y2 = yL
             dy = yL - y0
             y1 = y0-dy
-        
+
         if x1<0:
             x1 = 0
             dx = x0
@@ -251,7 +266,7 @@ def fitscutter(filename, ra, dec, xsize=1.0, ysize=1.0, units='arcmin',prefix='D
             x2 = xL
             dx = xL - x0
             x1 = x0 - dx
-          
+
 
         im_section = OrderedDict()
         h_section  = OrderedDict()
@@ -275,10 +290,10 @@ def fitscutter(filename, ra, dec, xsize=1.0, ysize=1.0, units='arcmin',prefix='D
         ofits = fitsio.FITS(outname,'rw',clobber=True)
         for EXTNAME in extnames:
             ofits.write(im_section[EXTNAME],extname=EXTNAME,header=h_section[EXTNAME])
-            
+
         ofits.close()
         if verb: SOUT.write("# Wrote: %s\n" % outname)
-      
+
     return
 
 def get_stiff_parameter_set(tiffname,**kwargs):
@@ -305,7 +320,7 @@ def make_stiff_call(fitsfiles,tiffname,stiff_parameters={},list=False):
     cmd_list.append("%s" % STIFF_EXE)
     for fname in fitsfiles:
         cmd_list.append( "%s" % fname)
-        
+
     cmd_list.append("-c %s" % stiff_conf)
     for param,value in pars.items():
         cmd_list.append("-%s %s" % (param,value))
@@ -323,7 +338,7 @@ def get_colorset(avail_bands,color_set=None):
     """
     # 1. Check if desired color_set matches the available bands """
     #if color_set:
-    inset = list( set(color_set) & set(avail_bands))        
+    inset = list( set(color_set) & set(avail_bands))
     if len(inset) == 3:
         return color_set
 
@@ -336,7 +351,7 @@ def get_colorset(avail_bands,color_set=None):
             CSET = color_set
     # 3. If no match return False
     if not CSET:
-        CSET=False 
+        CSET=False
     return CSET
 
 def color_radec(ra,dec,avail_bands,prefix='DES',colorset=['i','r','g'], stiff_parameters={},outdir=os.getcwd(),verb=False):
@@ -344,11 +359,11 @@ def color_radec(ra,dec,avail_bands,prefix='DES',colorset=['i','r','g'], stiff_pa
     t0 = time.time()
 
     # Get colorset or match with available bands
-    CSET = get_colorset(avail_bands,colorset) 
+    CSET = get_colorset(avail_bands,colorset)
 
     if CSET is False:
         SOUT.write("# WARNING: Could not find a suitable filter set for color image for ra,dec: %s,%s\n" % (ra,dec))
-        return 
+        return
 
     ## ----------------------------------- ##
     # HERE WE COULD LOOP OVER RA,DEC if they are lists!
@@ -374,7 +389,7 @@ def color_radec(ra,dec,avail_bands,prefix='DES',colorset=['i','r','g'], stiff_pa
 
     ## ----------------------------------- ##
 
-    return 
+    return
 
 if __name__ == "__main__":
 
@@ -398,4 +413,3 @@ if __name__ == "__main__":
     t0 = time.time()
     fitscutter(filename, ra, dec, xsize=xsize, ysize=ysize, units='arcmin',prefix='DES',tilename=tilename,verb=True)
     SOUT.write("Done: %s\n" % elapsed_time(t0))
-
