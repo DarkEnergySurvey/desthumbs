@@ -2,5 +2,6 @@
 .DS_Store
 *.pyc
 *~
-
+*.parquet
+*.duckdb
 matched_example_input_radec.csv
