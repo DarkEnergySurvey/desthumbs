@@ -15,6 +15,11 @@ create table Y6A2_COADD_FILEPATH as
            c.PFW_ATTEMPT_ID=PROCTAG.PFW_ATTEMPT_ID and des_admin.Y6A2
            f.FILENAME=c.FILENAME;
 
+-- SELECT COUNT(*) FROM Y6A2_COADD_FILEPATH;
+-- COUNT(*)
+----------
+-- 111859
+
 
 --- build table with info for finalcut files
 create table Y6A2_FINALCUT_FILEPATH as
@@ -25,6 +30,14 @@ select i.FILENAME, f.PATH, i.BAND, i.EXPTIME, i.AIRMASS, i.FWHM, i.NITE, i.EXPNU
  where  i.EXPNUM=e.EXPNUM
         and i.FILENAME=f.FILENAME
         and i.FILETYPE='red_immask';
+
+---
+-- SELECT COUNT(*) FROM Y6A2_FINALCUT_FILEPATH;
+--   COUNT(*)
+----------
+--   7954954
+
+
 
 -- example of search near ra, dec
 select i.FILENAME, i.BAND, i.FILETYPE, i.EXPTIME, i.NITE, i.EXPNUM, e.DATE_OBS, e.MJD_OBS from Y6A2_IMAGE i, Y6A2_EXPOSURE e
@@ -42,3 +55,7 @@ select i.FILENAME, i.BAND, i.EXPTIME, i.NITE, i.EXPNUM, i.DATE_OBS, i.MJD_OBS fr
   and i.DATE_OBS between '2013-10-25T00:05:49' and '2014-12-25T00:05:49'
   and i.BAND='r' order by i.EXPNUM;
 SET TIMING OFF;
+
+
+SELECT segment_type, SUM(bytes) / 1024 / 1024 AS size_mb FROM user_segments WHERE segment_name = 'Y6A2_FINALCUT_FILEPATH' OR segment_name IN (SELECT index_name FROM user_indexes WHERE table_name = 'Y6A2_FINALCUT_FILEPATH')
+GROUP BY segment_type;
