@@ -23,7 +23,7 @@ create table Y6A2_COADD_FILEPATH as
 
 --- build table with info for finalcut files
 create table Y6A2_FINALCUT_FILEPATH as
-select i.FILENAME, f.PATH, i.BAND, i.EXPTIME, i.AIRMASS, i.FWHM, i.NITE, i.EXPNUM, i.CCDNUM, e.DATE_OBS, e.MJD_OBS,
+select i.FILENAME, f.PATH, f.COMPRESSION, i.BAND, i.EXPTIME, i.AIRMASS, i.FWHM, i.NITE, i.EXPNUM, i.CCDNUM, e.DATE_OBS, e.MJD_OBS,
        i.CROSSRA0, i.RACMIN, i.RACMAX, i.DECCMIN, i.DECCMAX,
        i.RAC1, i.RAC2, i.RAC3, i.RAC4, i.DECC1, i.DECC2, i.DECC3, i.DECC4
  from Y6A2_IMAGE i, Y6A2_EXPOSURE e, Y6A2_FILE_ARCHIVE_INFO f
