@@ -96,7 +96,7 @@ def cmdline(config=None):
     # args = parser.parse_args()
     # Set the defaults of argparse using the values in the yaml config file
     parser.set_defaults(**conf_defaults)
-    args = parser.parse_args(args=remaining_argv)
+    args, remaining_argv = parser.parse_known_args(args=remaining_argv)
     # Update  variables in config with actual values
     args.__dict__ = regexlib.replace_variables_in_dict(args.__dict__)
     args.loglevel = getattr(logging, args.loglevel)
